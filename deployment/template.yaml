@@ -1,0 +1,164 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Planly API - Main Template
+
+Parameters:
+    AWSRegion:
+        Type: String
+        Default: us-east-1
+        Description: AWS Region where resources will be created
+    JwtSecret:
+        Type: String
+        Default: "your-secret-key-change-in-production"
+        Description: Secret key for JWT token signing
+        NoEcho: true
+
+Resources:
+    # ============================================
+    # Shared Resources
+    # ============================================
+
+    # API Gateway REST API (Shared) - Using OpenAPI
+    PlanlyApi:
+        Type: AWS::Serverless::Api
+        Properties:
+            Name: planly-api
+            StageName: prod
+            DefinitionBody:
+                Fn::Transform:
+                    Name: AWS::Include
+                    Parameters:
+                        Location: openapi.yaml
+
+    # ============================================
+    # Category Module
+    # ============================================
+
+    # DynamoDB Table for Categories
+    CategoryTable:
+        Type: AWS::DynamoDB::Table
+        Properties:
+            TableName: planly-category
+            BillingMode: PAY_PER_REQUEST
+            AttributeDefinitions:
+                - AttributeName: id
+                  AttributeType: S
+                - AttributeName: userId
+                  AttributeType: S
+            KeySchema:
+                - AttributeName: id
+                  KeyType: HASH
+            GlobalSecondaryIndexes:
+                - IndexName: userId-index
+                  KeySchema:
+                      - AttributeName: userId
+                        KeyType: HASH
+                  Projection:
+                      ProjectionType: ALL
+
+    # DynamoDB Table for Users
+    UserTable:
+        Type: AWS::DynamoDB::Table
+        Properties:
+            TableName: user
+            BillingMode: PAY_PER_REQUEST
+            AttributeDefinitions:
+                - AttributeName: userId
+                  AttributeType: S
+            KeySchema:
+                - AttributeName: userId
+                  KeyType: HASH
+
+    # IAM Role for Category Lambda
+    CategoryLambdaExecutionRole:
+        Type: AWS::IAM::Role
+        Properties:
+            RoleName: planly-api-category-lambda-role
+            AssumeRolePolicyDocument:
+                Version: "2012-10-17"
+                Statement:
+                    - Effect: Allow
+                      Principal:
+                          Service: lambda.amazonaws.com
+                      Action: sts:AssumeRole
+            ManagedPolicyArns:
+                - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+            Policies:
+                - PolicyName: DynamoDBAccess
+                  PolicyDocument:
+                      Version: "2012-10-17"
+                      Statement:
+                          - Effect: Allow
+                            Action:
+                                - dynamodb:PutItem
+                                - dynamodb:GetItem
+                                - dynamodb:UpdateItem
+                                - dynamodb:DeleteItem
+                                - dynamodb:Query
+                                - dynamodb:Scan
+                            Resource:
+                                - !GetAtt CategoryTable.Arn
+                                - !Sub "${CategoryTable.Arn}/index/*"
+                                - !GetAtt UserTable.Arn
+                                - !Sub "${UserTable.Arn}/index/*"
+                - PolicyName: SecretsManagerAccess
+                  PolicyDocument:
+                      Version: "2012-10-17"
+                      Statement:
+                          - Effect: Allow
+                            Action:
+                                - secretsmanager:GetSecretValue
+                            Resource:
+                                - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:planly/jwt*"
+
+    # Lambda Permission for API Gateway
+    CategoryLambdaApiGatewayInvokePermission:
+        Type: AWS::Lambda::Permission
+        Properties:
+            FunctionName: !Ref CategoryLambdaFunction
+            Action: lambda:InvokeFunction
+            Principal: apigateway.amazonaws.com
+            SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PlanlyApi}/*/*"
+
+    # Category Lambda Function
+    CategoryLambdaFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            FunctionName: planly-api-category-lambda
+            Runtime: nodejs20.x
+            Handler: dist/handlers/category/index.handler
+            CodeUri: ..
+            Role: !GetAtt CategoryLambdaExecutionRole.Arn
+            Timeout: 30
+            MemorySize: 256
+
+Outputs:
+    ApiUrl:
+        Description: API Gateway endpoint URL
+        Value: !Sub "https://${PlanlyApi}.execute-api.${AWS::Region}.amazonaws.com/prod/"
+        Export:
+            Name: !Sub "${AWS::StackName}-ApiUrl"
+
+    PlanlyApiId:
+        Description: API Gateway REST API ID
+        Value: !Ref PlanlyApi
+        Export:
+            Name: !Sub "${AWS::StackName}-PlanlyApiId"
+
+    CategoryLambdaFunctionName:
+        Description: Category Lambda Function Name
+        Value: !Ref CategoryLambdaFunction
+        Export:
+            Name: !Sub "${AWS::StackName}-CategoryLambdaFunctionName"
+
+    CategoryTableName:
+        Description: DynamoDB Category Table Name
+        Value: !Ref CategoryTable
+        Export:
+            Name: !Sub "${AWS::StackName}-CategoryTableName"
+
+    UserTableName:
+        Description: DynamoDB User Table Name
+        Value: !Ref UserTable
+        Export:
+            Name: !Sub "${AWS::StackName}-UserTableName"

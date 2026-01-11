@@ -1,0 +1,23 @@
+version = 0.1
+
+[default]
+[default.global.parameters]
+stack_name = "planly-api"
+
+[default.build.parameters]
+cached = true
+parallel = true
+template_file = "template.yaml"
+
+[default.deploy.parameters]
+capabilities = "CAPABILITY_NAMED_IAM"
+region = "us-east-1"
+confirm_changeset = true
+resolve_s3 = true
+parameter_overrides = "AWSRegion=us-east-1"
+template_file = "template.yaml"
+
+[default.package.parameters]
+resolve_s3 = true
+template_file = "template.yaml"
+

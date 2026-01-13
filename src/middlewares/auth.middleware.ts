@@ -13,7 +13,8 @@ export interface AuthContext {
 export const authMiddleware = (): MiddlewareObj<APIGatewayProxyEvent, APIGatewayProxyResult> => {
     return {
         before: async (request) => {
-            console.log(request);
+            console.log("HEADERS: ", request.event.headers);
+            console.log("BODY: ", request.event.body);
             const authHeader = request.event.headers.Authorization || request.event.headers.authorization;
 
             if (!authHeader) {

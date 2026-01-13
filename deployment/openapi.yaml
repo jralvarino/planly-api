@@ -291,3 +291,329 @@ paths:
                             method.response.header.Access-Control-Allow-Origin: "'*'"
                             method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
                             method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+    /habits:
+        post:
+            summary: Create a new habit
+            operationId: createHabit
+            security:
+                - bearerAuth: []
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - title
+                                - categoryId
+                            properties:
+                                title:
+                                    type: string
+                                description:
+                                    type: string
+                                color:
+                                    type: string
+                                emoji:
+                                    type: string
+                                unit:
+                                    type: string
+                                    enum: ["count", "pg", "km", "ml"]
+                                value:
+                                    type: string
+                                period_type:
+                                    type: string
+                                    enum: ["every_day", "specific_days_week", "specific_days_month"]
+                                period_value:
+                                    type: string
+                                categoryId:
+                                    type: string
+                                period:
+                                    type: string
+                                    enum: ["Anytime", "Morning", "Afternoon", "Evening"]
+                                reminder_time:
+                                    type: string
+                                start_date:
+                                    type: string
+                                end_date:
+                                    type: string
+                                active:
+                                    type: boolean
+            responses:
+                "201":
+                    description: Habit created successfully
+            x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri:
+                    Fn::Sub: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HabitLambdaFunction.Arn}/invocations"
+        get:
+            summary: Get all habits for the authenticated user
+            operationId: getHabits
+            security:
+                - bearerAuth: []
+            responses:
+                "200":
+                    description: List of habits for the user
+            x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri:
+                    Fn::Sub: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HabitLambdaFunction.Arn}/invocations"
+        options:
+            summary: CORS preflight
+            operationId: optionsHabits
+            responses:
+                "200":
+                    description: CORS response
+                    headers:
+                        Access-Control-Allow-Origin:
+                            schema:
+                                type: string
+                        Access-Control-Allow-Methods:
+                            schema:
+                                type: string
+                        Access-Control-Allow-Headers:
+                            schema:
+                                type: string
+            x-amazon-apigateway-integration:
+                type: mock
+                requestTemplates:
+                    application/json: '{"statusCode": 200}'
+                responses:
+                    default:
+                        statusCode: "200"
+                        responseParameters:
+                            method.response.header.Access-Control-Allow-Origin: "'*'"
+                            method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+    /habits/date:
+        get:
+            summary: Get habits for a specific date
+            operationId: getHabitsByDate
+            security:
+                - bearerAuth: []
+            parameters:
+                - name: date
+                  in: query
+                  required: false
+                  description: Date in YYYY-MM-DD format. If not provided, uses current date.
+                  schema:
+                      type: string
+                      pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+                      example: "2024-01-15"
+            responses:
+                "200":
+                    description: List of habits for the specified date
+                    content:
+                        application/json:
+                            schema:
+                                type: array
+                                items:
+                                    type: object
+                                    properties:
+                                        id:
+                                            type: string
+                                        userId:
+                                            type: string
+                                        title:
+                                            type: string
+                                        description:
+                                            type: string
+                                        color:
+                                            type: string
+                                        emoji:
+                                            type: string
+                                        unit:
+                                            type: string
+                                            enum: ["count", "pg", "km", "ml"]
+                                        value:
+                                            type: string
+                                        period_type:
+                                            type: string
+                                            enum: ["every_day", "specific_days_week", "specific_days_month"]
+                                        period_value:
+                                            type: string
+                                        categoryId:
+                                            type: string
+                                        period:
+                                            type: string
+                                            enum: ["Anytime", "Morning", "Afternoon", "Evening"]
+                                        reminder_enabled:
+                                            type: boolean
+                                        reminder_time:
+                                            type: string
+                                        start_date:
+                                            type: string
+                                        end_date:
+                                            type: string
+                                        active:
+                                            type: boolean
+                                        createdAt:
+                                            type: string
+                                        updatedAt:
+                                            type: string
+            x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri:
+                    Fn::Sub: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HabitLambdaFunction.Arn}/invocations"
+        options:
+            summary: CORS preflight
+            operationId: optionsHabitsByDate
+            responses:
+                "200":
+                    description: CORS response
+                    headers:
+                        Access-Control-Allow-Origin:
+                            schema:
+                                type: string
+                        Access-Control-Allow-Methods:
+                            schema:
+                                type: string
+                        Access-Control-Allow-Headers:
+                            schema:
+                                type: string
+            x-amazon-apigateway-integration:
+                type: mock
+                requestTemplates:
+                    application/json: '{"statusCode": 200}'
+                responses:
+                    default:
+                        statusCode: "200"
+                        responseParameters:
+                            method.response.header.Access-Control-Allow-Origin: "'*'"
+                            method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+    /habits/{id}:
+        get:
+            summary: Get habit by ID
+            operationId: getHabitById
+            security:
+                - bearerAuth: []
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: Habit details
+                "404":
+                    description: Habit not found
+            x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri:
+                    Fn::Sub: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HabitLambdaFunction.Arn}/invocations"
+        put:
+            summary: Update habit
+            operationId: updateHabit
+            security:
+                - bearerAuth: []
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            properties:
+                                title:
+                                    type: string
+                                description:
+                                    type: string
+                                color:
+                                    type: string
+                                emoji:
+                                    type: string
+                                unit:
+                                    type: string
+                                    enum: ["count", "pg", "km", "ml"]
+                                value:
+                                    type: string
+                                period_type:
+                                    type: string
+                                    enum: ["every_day", "specific_days_week", "specific_days_month"]
+                                period_value:
+                                    type: string
+                                categoryId:
+                                    type: string
+                                period:
+                                    type: string
+                                    enum: ["Anytime", "Morning", "Afternoon", "Evening"]
+                                reminder_time:
+                                    type: string
+                                start_date:
+                                    type: string
+                                end_date:
+                                    type: string
+                                active:
+                                    type: boolean
+            responses:
+                "200":
+                    description: Habit updated successfully
+                "404":
+                    description: Habit not found
+            x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri:
+                    Fn::Sub: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HabitLambdaFunction.Arn}/invocations"
+        delete:
+            summary: Delete habit
+            operationId: deleteHabit
+            security:
+                - bearerAuth: []
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: Habit deleted successfully
+                "404":
+                    description: Habit not found
+            x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri:
+                    Fn::Sub: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HabitLambdaFunction.Arn}/invocations"
+        options:
+            summary: CORS preflight
+            operationId: optionsHabitById
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+            responses:
+                "200":
+                    description: CORS response
+                    headers:
+                        Access-Control-Allow-Origin:
+                            schema:
+                                type: string
+                        Access-Control-Allow-Methods:
+                            schema:
+                                type: string
+                        Access-Control-Allow-Headers:
+                            schema:
+                                type: string
+            x-amazon-apigateway-integration:
+                type: mock
+                requestTemplates:
+                    application/json: '{"statusCode": 200}'
+                responses:
+                    default:
+                        statusCode: "200"
+                        responseParameters:
+                            method.response.header.Access-Control-Allow-Origin: "'*'"
+                            method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"

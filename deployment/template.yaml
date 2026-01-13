@@ -132,6 +132,97 @@ Resources:
             Timeout: 30
             MemorySize: 256
 
+    # ============================================
+    # Habit Module
+    # ============================================
+
+    # DynamoDB Table for Habits
+    HabitTable:
+        Type: AWS::DynamoDB::Table
+        Properties:
+            TableName: planly-habit
+            BillingMode: PAY_PER_REQUEST
+            AttributeDefinitions:
+                - AttributeName: id
+                  AttributeType: S
+                - AttributeName: userId
+                  AttributeType: S
+            KeySchema:
+                - AttributeName: id
+                  KeyType: HASH
+            GlobalSecondaryIndexes:
+                - IndexName: userId-index
+                  KeySchema:
+                      - AttributeName: userId
+                        KeyType: HASH
+                  Projection:
+                      ProjectionType: ALL
+
+    # IAM Role for Habit Lambda
+    HabitLambdaExecutionRole:
+        Type: AWS::IAM::Role
+        Properties:
+            RoleName: planly-api-habit-lambda-role
+            AssumeRolePolicyDocument:
+                Version: "2012-10-17"
+                Statement:
+                    - Effect: Allow
+                      Principal:
+                          Service: lambda.amazonaws.com
+                      Action: sts:AssumeRole
+            ManagedPolicyArns:
+                - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+            Policies:
+                - PolicyName: DynamoDBAccess
+                  PolicyDocument:
+                      Version: "2012-10-17"
+                      Statement:
+                          - Effect: Allow
+                            Action:
+                                - dynamodb:PutItem
+                                - dynamodb:GetItem
+                                - dynamodb:UpdateItem
+                                - dynamodb:DeleteItem
+                                - dynamodb:Query
+                                - dynamodb:Scan
+                            Resource:
+                                - !GetAtt HabitTable.Arn
+                                - !Sub "${HabitTable.Arn}/index/*"
+                                - !GetAtt CategoryTable.Arn
+                                - !Sub "${CategoryTable.Arn}/index/*"
+                                - !GetAtt UserTable.Arn
+                                - !Sub "${UserTable.Arn}/index/*"
+                - PolicyName: SecretsManagerAccess
+                  PolicyDocument:
+                      Version: "2012-10-17"
+                      Statement:
+                          - Effect: Allow
+                            Action:
+                                - secretsmanager:GetSecretValue
+                            Resource:
+                                - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:planly/jwt*"
+
+    # Lambda Permission for API Gateway
+    HabitLambdaApiGatewayInvokePermission:
+        Type: AWS::Lambda::Permission
+        Properties:
+            FunctionName: !Ref HabitLambdaFunction
+            Action: lambda:InvokeFunction
+            Principal: apigateway.amazonaws.com
+            SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PlanlyApi}/*/*"
+
+    # Habit Lambda Function
+    HabitLambdaFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            FunctionName: planly-api-habit-lambda
+            Runtime: nodejs20.x
+            Handler: dist/handlers/habit/index.handler
+            CodeUri: ..
+            Role: !GetAtt HabitLambdaExecutionRole.Arn
+            Timeout: 30
+            MemorySize: 256
+
 Outputs:
     ApiUrl:
         Description: API Gateway endpoint URL
@@ -162,3 +253,15 @@ Outputs:
         Value: !Ref UserTable
         Export:
             Name: !Sub "${AWS::StackName}-UserTableName"
+
+    HabitLambdaFunctionName:
+        Description: Habit Lambda Function Name
+        Value: !Ref HabitLambdaFunction
+        Export:
+            Name: !Sub "${AWS::StackName}-HabitLambdaFunctionName"
+
+    HabitTableName:
+        Description: DynamoDB Habit Table Name
+        Value: !Ref HabitTable
+        Export:
+            Name: !Sub "${AWS::StackName}-HabitTableName"

@@ -47,7 +47,6 @@ const getAllCategories = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(authMiddleware())
     .use(validator({ eventSchema: transpileSchema(getCategoriesSchema) }))
     .handler(async (event) => {
-        console.log(event);
         const userId = (event.requestContext?.authorizer as any)?.userId;
 
         const categories = await service.getAllCategories(userId);

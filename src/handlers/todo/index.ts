@@ -4,19 +4,14 @@ import jsonBodyParser from "@middy/http-json-body-parser";
 import httpRouterHandler from "@middy/http-router";
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 
-import { routes } from "../../controllers/category.controller.js";
-import { authRoutes } from "../../controllers/auth.controller.js";
-import { routes as userRoutes } from "../../controllers/user.controller.js";
+import { routes } from "../../controllers/todo.controller.js";
 import { globalExceptionHandler } from "../../middlewares/global-exception-handler.middleware.js";
-
-// Combinar todas as rotas
-const allRoutes = [...authRoutes, ...userRoutes, ...routes];
 
 const handler = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(jsonBodyParser({ disableContentTypeCheck: true } as any))
     .use(httpEventNormalizer())
     .use(globalExceptionHandler())
-    .handler(httpRouterHandler(allRoutes));
+    .handler(httpRouterHandler(routes));
 
 export { handler };
 export default handler;

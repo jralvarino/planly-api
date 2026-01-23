@@ -68,19 +68,6 @@ const getHabitById = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
         return success(habit);
     });
 
-const getHabitsByDate = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
-    .use(authMiddleware())
-    //.use(validator({ eventSchema: transpileSchema(getHabitsByDateSchema) }))
-    .handler(async (event) => {
-        const userId = (event.requestContext?.authorizer as any)?.userId;
-
-        const date = event.queryStringParameters?.date || "";
-
-        const habits = await service.getHabitsByDate(userId, date);
-
-        return success(habits);
-    });
-
 const deleteHabit = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(authMiddleware())
     //.use(validator({ eventSchema: transpileSchema(deleteHabitSchema) }))
@@ -114,11 +101,6 @@ export const routes: Route<APIGatewayProxyEvent, APIGatewayProxyResult>[] = [
         method: "GET",
         path: "/habits/{id}",
         handler: getHabitById,
-    },
-    {
-        method: "GET",
-        path: "/habits/date",
-        handler: getHabitsByDate,
     },
     {
         method: "DELETE",

@@ -2,9 +2,11 @@ import { HabitRepository } from "../repositories/HabitRepository.js";
 import { Habit } from "../models/Habit.js";
 import { NotFoundError } from "../errors/PlanlyError.js";
 import { v4 as uuidv4 } from "uuid";
+import { StatsService } from "./StatsService.js";
 
 export class HabitService {
     private repository = new HabitRepository();
+    private statsService = new StatsService();
 
     async create(userId: string, habitData: Partial<Habit>): Promise<Habit> {
         const now = new Date().toISOString();
@@ -33,6 +35,8 @@ export class HabitService {
 
         await this.repository.create(habit);
 
+        this.statsService.createStats(userId, id, habit.categoryId);
+
         return habit;
     }
 
@@ -52,13 +56,6 @@ export class HabitService {
         }
 
         return habit;
-    }
-
-    async getHabitsByDate(userId: string, date: string): Promise<Array<Habit & { completed: boolean; log?: any }>> {
-        // Buscar todos os hábitos do usuário
-        const allHabits = await this.repository.findAllByUserId(userId);
-        
-        return [];
     }
 
     async update(userId: string, id: string, habitData: Partial<Habit>): Promise<Habit> {

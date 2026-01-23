@@ -147,6 +147,8 @@ Resources:
                   AttributeType: S
                 - AttributeName: userId
                   AttributeType: S
+                - AttributeName: start_date
+                  AttributeType: S
             KeySchema:
                 - AttributeName: id
                   KeyType: HASH
@@ -157,6 +159,69 @@ Resources:
                         KeyType: HASH
                   Projection:
                       ProjectionType: ALL
+                - IndexName: userId-start_date-index
+                  KeySchema:
+                      - AttributeName: userId
+                        KeyType: HASH
+                      - AttributeName: start_date
+                        KeyType: RANGE
+                  Projection:
+                      ProjectionType: ALL
+
+    # DynamoDB Table for Todos
+    TodoTable:
+        Type: AWS::DynamoDB::Table
+        Properties:
+            TableName: planly-todo
+            BillingMode: PAY_PER_REQUEST
+            AttributeDefinitions:
+                - AttributeName: PK
+                  AttributeType: S
+                - AttributeName: SK
+                  AttributeType: S
+                - AttributeName: habitId
+                  AttributeType: S
+                - AttributeName: userId
+                  AttributeType: S
+                - AttributeName: date
+                  AttributeType: S
+            KeySchema:
+                - AttributeName: PK
+                  KeyType: HASH
+                - AttributeName: SK
+                  KeyType: RANGE
+            GlobalSecondaryIndexes:
+                - IndexName: habitId-index
+                  KeySchema:
+                      - AttributeName: habitId
+                        KeyType: HASH
+                  Projection:
+                      ProjectionType: ALL
+                - IndexName: userId-date-index
+                  KeySchema:
+                      - AttributeName: userId
+                        KeyType: HASH
+                      - AttributeName: date
+                        KeyType: RANGE
+                  Projection:
+                      ProjectionType: ALL
+
+    # DynamoDB Table for Stats
+    StatsTable:
+        Type: AWS::DynamoDB::Table
+        Properties:
+            TableName: planly-stats
+            BillingMode: PAY_PER_REQUEST
+            AttributeDefinitions:
+                - AttributeName: PK
+                  AttributeType: S
+                - AttributeName: SK
+                  AttributeType: S
+            KeySchema:
+                - AttributeName: PK
+                  KeyType: HASH
+                - AttributeName: SK
+                  KeyType: RANGE
 
     # IAM Role for Habit Lambda
     HabitLambdaExecutionRole:
@@ -192,6 +257,10 @@ Resources:
                                 - !Sub "${CategoryTable.Arn}/index/*"
                                 - !GetAtt UserTable.Arn
                                 - !Sub "${UserTable.Arn}/index/*"
+                                - !GetAtt TodoTable.Arn
+                                - !Sub "${TodoTable.Arn}/index/*"
+                                - !GetAtt StatsTable.Arn
+                                - !Sub "${StatsTable.Arn}/index/*"
                 - PolicyName: SecretsManagerAccess
                   PolicyDocument:
                       Version: "2012-10-17"
@@ -220,6 +289,79 @@ Resources:
             Handler: dist/handlers/habit/index.handler
             CodeUri: ..
             Role: !GetAtt HabitLambdaExecutionRole.Arn
+            Timeout: 30
+            MemorySize: 256
+
+    # ============================================
+    # Todo Module
+    # ============================================
+
+    # IAM Role for Todo Lambda
+    TodoLambdaExecutionRole:
+        Type: AWS::IAM::Role
+        Properties:
+            RoleName: planly-api-todo-lambda-role
+            AssumeRolePolicyDocument:
+                Version: "2012-10-17"
+                Statement:
+                    - Effect: Allow
+                      Principal:
+                          Service: lambda.amazonaws.com
+                      Action: sts:AssumeRole
+            ManagedPolicyArns:
+                - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+            Policies:
+                - PolicyName: DynamoDBAccess
+                  PolicyDocument:
+                      Version: "2012-10-17"
+                      Statement:
+                          - Effect: Allow
+                            Action:
+                                - dynamodb:PutItem
+                                - dynamodb:GetItem
+                                - dynamodb:UpdateItem
+                                - dynamodb:DeleteItem
+                                - dynamodb:Query
+                                - dynamodb:Scan
+                            Resource:
+                                - !GetAtt CategoryTable.Arn
+                                - !Sub "${CategoryTable.Arn}/index/*"
+                                - !GetAtt UserTable.Arn
+                                - !Sub "${UserTable.Arn}/index/*"
+                                - !GetAtt TodoTable.Arn
+                                - !Sub "${TodoTable.Arn}/index/*"
+                                - !GetAtt HabitTable.Arn
+                                - !Sub "${HabitTable.Arn}/index/*"
+                                - !GetAtt StatsTable.Arn
+                                - !Sub "${StatsTable.Arn}/index/*"
+                - PolicyName: SecretsManagerAccess
+                  PolicyDocument:
+                      Version: "2012-10-17"
+                      Statement:
+                          - Effect: Allow
+                            Action:
+                                - secretsmanager:GetSecretValue
+                            Resource:
+                                - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:planly/jwt*"
+
+    # Lambda Permission for API Gateway
+    TodoLambdaApiGatewayInvokePermission:
+        Type: AWS::Lambda::Permission
+        Properties:
+            FunctionName: !Ref TodoLambdaFunction
+            Action: lambda:InvokeFunction
+            Principal: apigateway.amazonaws.com
+            SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PlanlyApi}/*/*"
+
+    # Todo Lambda Function
+    TodoLambdaFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            FunctionName: planly-api-todo-lambda
+            Runtime: nodejs20.x
+            Handler: dist/handlers/todo/index.handler
+            CodeUri: ..
+            Role: !GetAtt TodoLambdaExecutionRole.Arn
             Timeout: 30
             MemorySize: 256
 
@@ -265,3 +407,15 @@ Outputs:
         Value: !Ref HabitTable
         Export:
             Name: !Sub "${AWS::StackName}-HabitTableName"
+
+    TodoLambdaFunctionName:
+        Description: Todo Lambda Function Name
+        Value: !Ref TodoLambdaFunction
+        Export:
+            Name: !Sub "${AWS::StackName}-TodoLambdaFunctionName"
+
+    TodoTableName:
+        Description: DynamoDB Todo Table Name
+        Value: !Ref TodoTable
+        Export:
+            Name: !Sub "${AWS::StackName}-TodoTableName"

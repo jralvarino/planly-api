@@ -55,6 +55,22 @@ export class HabitRepository {
         return (result.Items as Habit[]) || [];
     }
 
+    async findAllByDate(userId: string, date: string): Promise<Habit[]> {
+        const result = await ddb.send(
+            new QueryCommand({
+                TableName: DYNAMO_TABLES.HABIT,
+                IndexName: "userId-start_date-index",
+                KeyConditionExpression: "userId = :userId AND start_date <= :date",
+                ExpressionAttributeValues: {
+                    ":userId": userId,
+                    ":date": date,
+                },
+            })
+        );
+
+        return (result.Items as Habit[]) || [];
+    }
+
     async delete(id: string): Promise<void> {
         await ddb.send(
             new DeleteCommand({

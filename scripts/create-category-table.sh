@@ -1,14 +1,14 @@
 #!/bin/bash
 
-# Script para criar a tabela Habit no DynamoDB local
-# Baseado no modelo Habit e na configuração do template.yaml
+# Script para criar a tabela Category no DynamoDB local
+# Baseado no modelo Category e na configuração do template.yaml
 
 # Configurações
-TABLE_NAME="planly-habit"
+TABLE_NAME="planly-category"
 DYNAMODB_ENDPOINT="${DYNAMODB_ENDPOINT:-http://localhost:8000}"
 REGION="${AWS_REGION:-us-east-1}"
 
-echo "🚀 Criando tabela Habit no DynamoDB local..."
+echo "🚀 Criando tabela Category no DynamoDB local..."
 echo "📍 Endpoint: $DYNAMODB_ENDPOINT"
 echo "📋 Nome da tabela: $TABLE_NAME"
 
@@ -56,7 +56,6 @@ aws dynamodb create-table \
     --attribute-definitions \
         AttributeName=id,AttributeType=S \
         AttributeName=userId,AttributeType=S \
-        AttributeName=start_date,AttributeType=S \
     --key-schema \
         AttributeName=id,KeyType=HASH \
     --billing-mode PAY_PER_REQUEST \
@@ -64,13 +63,6 @@ aws dynamodb create-table \
         "[{
             \"IndexName\": \"userId-index\",
             \"KeySchema\": [{\"AttributeName\": \"userId\", \"KeyType\": \"HASH\"}],
-            \"Projection\": {\"ProjectionType\": \"ALL\"}
-        }, {
-            \"IndexName\": \"userId-start_date-index\",
-            \"KeySchema\": [
-                {\"AttributeName\": \"userId\", \"KeyType\": \"HASH\"},
-                {\"AttributeName\": \"start_date\", \"KeyType\": \"RANGE\"}
-            ],
             \"Projection\": {\"ProjectionType\": \"ALL\"}
         }]" \
     --endpoint-url "$DYNAMODB_ENDPOINT" \
@@ -89,27 +81,12 @@ if [ $? -eq 0 ]; then
     echo "📊 Estrutura da tabela:"
     echo "   - Chave primária: id (String)"
     echo "   - GSI: userId-index (userId como chave)"
-    echo "   - GSI: userId-start_date-index (userId + start_date como chave)"
     echo "   - Modo de cobrança: PAY_PER_REQUEST"
     echo ""
-    echo "📝 Campos do modelo Habit:"
+    echo "📝 Campos do modelo Category:"
     echo "   - id (string, chave primária)"
     echo "   - userId (string, GSI)"
-    echo "   - title (string, obrigatório)"
-    echo "   - description (string, opcional)"
-    echo "   - color (string)"
-    echo "   - emoji (string)"
-    echo "   - unit (enum: count, pg, km, ml)"
-    echo "   - value (string)"
-    echo "   - period_type (enum: every_day, specific_days_week, specific_days_month)"
-    echo "   - period_value (string, opcional)"
-    echo "   - categoryId (string)"
-    echo "   - period (enum: Anytime, Morning, Afternoon, Evening)"
-    echo "   - reminder_enabled (boolean)"
-    echo "   - reminder_time (string, opcional)"
-    echo "   - start_date (string)"
-    echo "   - end_date (string, opcional)"
-    echo "   - active (boolean)"
+    echo "   - name (string, obrigatório)"
     echo "   - createdAt (string)"
     echo "   - updatedAt (string)"
 else

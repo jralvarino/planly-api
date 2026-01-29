@@ -4,8 +4,9 @@ import { TodoList } from "../models/TodoList.js";
 import { Todo } from "../models/Todo.js";
 import { TodoRepository } from "../repositories/TodoRepository.js";
 import { NotFoundError } from "../errors/PlanlyError.js";
-import { parseDayOfWeek } from "../utils/util.js";
 import { TODO_STATUS, TodoStatus } from "../constants/todo.constants.js";
+import { filterEligibleHabits } from "../utils/habitDate.util.js";
+import { StatsService } from "./StatsService.js";
 
 export interface UpdateStatusParams {
     userId: string;
@@ -19,6 +20,7 @@ export interface UpdateStatusParams {
 export class TodoService {
     private habitRepository = new HabitRepository();
     private todoRepository = new TodoRepository();
+    private statsService = new StatsService();
 
     async createOrUpdate(params: UpdateStatusParams): Promise<Todo> {
         const { userId, habitId, date, progressValue, status } = params;
@@ -51,6 +53,14 @@ export class TodoService {
 
         //It will create a new item if it doesn't exist or update the existing one
         await this.todoRepository.createOrUpdate(todo);
+        await this.statsService.updateStatsOnTodoChange(
+            userId,
+            habitId,
+            habit.categoryId,
+            date,
+            status,
+            existing?.status
+        );
         return todo;
     }
 
@@ -60,11 +70,14 @@ export class TodoService {
 
         const targetDate = new Date(date);
 
-        const elegibleHabits = habits.filter((habit) => isValidForTargetDate(habit, targetDate));
+        const elegibleHabits = filterEligibleHabits(habits, targetDate);
 
         const todoList: TodoList[] = await Promise.all(
             elegibleHabits.map(async (habit) => {
-                const todo = await this.todoRepository.findByUserDateAndHabit(userId, date, habit.id);
+                const [todo, habitStreak] = await Promise.all([
+                    this.todoRepository.findByUserDateAndHabit(userId, date, habit.id),
+                    this.statsService.getHabitStreak(userId, habit.id),
+                ]);
 
                 return {
                     id: habit.id,
@@ -80,6 +93,7 @@ export class TodoService {
                     progressValue: todo?.progress?.toString() || "0",
                     notes: todo?.notes || "",
                     updatedAt: todo?.updatedAt || habit.updatedAt,
+                    habitStreak,
                 };
             })
         );
@@ -212,43 +226,4 @@ function getProgressValue(
         return progressValue;
     }
     return 0;
-}
-
-function isValidForTargetDate(habit: Habit, date: Date): boolean {
-    const targetDate = date.toISOString().split("T")[0];
-
-    if (habit.end_date) {
-        const endDate = habit.end_date.split("T")[0];
-        if (targetDate > endDate) {
-            return false;
-        }
-    }
-
-    switch (habit.period_type) {
-        case "every_day":
-            return true;
-        case "specific_days_week": {
-            if (!habit.period_value) {
-                return false;
-            }
-            const allowedDays = habit.period_value
-                .split(",")
-                .map((d) => parseDayOfWeek(d))
-                .filter((d): d is number => d !== null);
-
-            const dayOfWeek = date.getDay();
-
-            return allowedDays.includes(dayOfWeek);
-        }
-        case "specific_days_month": {
-            if (!habit.period_value) {
-                return false;
-            }
-            const allowedDays = habit.period_value.split(",").map((d) => parseInt(d.trim()));
-            const dayOfMonth = date.getDate();
-            return allowedDays.includes(dayOfMonth);
-        }
-        default:
-            return false;
-    }
 }

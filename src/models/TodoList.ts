@@ -14,4 +14,6 @@ export interface TodoList {
     progressValue: string;
     notes: string;
     updatedAt: string;
+    /** Streak atual do hábito (dias consecutivos concluídos). */
+    habitStreak: number;
 }

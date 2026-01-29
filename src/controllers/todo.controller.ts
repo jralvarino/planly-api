@@ -5,10 +5,12 @@ import validator from "@middy/validator";
 import { transpileSchema } from "@middy/validator/transpile";
 import { updateTodoStatusSchema, updateTodoNotesSchema } from "../schemas/todo.schemas.js";
 import { TodoService, UpdateStatusParams } from "../services/TodoService.js";
+import { StatsService } from "../services/StatsService.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 import { success, noContent } from "../utils/response.util.js";
 
 const service = new TodoService();
+const statsService = new StatsService();
 
 const getTodoListByDate = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(authMiddleware())
@@ -20,6 +22,14 @@ const getTodoListByDate = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
         const habits = await service.getTodoListByDate(userId, date);
 
         return success(habits);
+    });
+
+const getGlobalStreak = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
+    .use(authMiddleware())
+    .handler(async (event) => {
+        const userId = (event.requestContext?.authorizer as any)?.userId;
+        const globalStreak = await statsService.getGlobalStreak(userId);
+        return success({ globalStreak });
     });
 
 const createOrUpdateTodo = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
@@ -78,6 +88,11 @@ const updateTodoNotes = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     });
 
 export const routes: Route<APIGatewayProxyEvent, APIGatewayProxyResult>[] = [
+    {
+        method: "GET",
+        path: "/stats/global-streak",
+        handler: getGlobalStreak,
+    },
     {
         method: "GET",
         path: "/todo/date",

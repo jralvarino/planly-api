@@ -78,6 +78,17 @@ export class HabitService {
 
         await this.repository.update(updatedHabit);
 
+        const startDateChanged =
+            habitData.start_date !== undefined && habitData.start_date !== existingHabit.start_date;
+        if (startDateChanged) {
+            await this.statsService.recalcStatsForHabitAndCategory(
+                userId,
+                id,
+                updatedHabit.categoryId,
+                updatedHabit.start_date
+            );
+        }
+
         return updatedHabit;
     }
 

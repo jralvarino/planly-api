@@ -2,7 +2,7 @@ import { GetCommand, PutCommand, QueryCommand, DeleteCommand, UpdateCommand } fr
 import { ddb } from "../db/dynamoClient.js";
 import { Todo } from "../models/Todo.js";
 import { DYNAMO_TABLES } from "../db/dynamodb.tables.js";
-import { TodoStatus } from "../constants/todo.constants.js";
+import { TODO_STATUS, TodoStatus } from "../constants/todo.constants.js";
 
 export class TodoRepository {
     async createOrUpdate(todo: Todo): Promise<void> {
@@ -70,6 +70,47 @@ export class TodoRepository {
         );
 
         return (result.Items as Todo[]) || [];
+    }
+
+    /**
+     * Retorna a menor data em [startDate, endDate] em que o hábito não foi concluído:
+     * - Dias sem Todo na tabela (considerados não concluídos)
+     * - Dias com Todo com status diferente de DONE (PENDING ou SKIPPED)
+     * Usado para iniciar o recálculo de stats a partir da primeira "lacuna" em vez do start_date do hábito.
+     * 
+     * @param endDate - Se não fornecido, usa a data atual (hoje)
+     */
+    async findMinDateByHabitWhereNotDone(
+        userId: string,
+        habitId: string,
+        startDate: string,
+        endDate?: string
+    ): Promise<string | null> {
+        const effectiveEndDate = endDate ?? new Date().toISOString().split("T")[0];
+        const todos = await this.findAllByDateRange(userId, startDate, effectiveEndDate);
+        const habitTodos = todos.filter((t) => t.habitId === habitId);
+        const todoByDate = new Map(habitTodos.map((t) => [t.date, t]));
+
+        // Gerar range de datas
+        const start = new Date(startDate);
+        const end = new Date(effectiveEndDate);
+        const dates: string[] = [];
+        const current = new Date(start);
+        while (current <= end) {
+            dates.push(current.toISOString().split("T")[0]);
+            current.setDate(current.getDate() + 1);
+        }
+
+        // Encontrar a menor data que não está concluída, verificando do maior para o menor (mais recente para mais antigo)
+        for (let i = dates.length - 1; i >= 0; i--) {
+            const date = dates[i];
+            const todo = todoByDate.get(date);
+            if (!todo || todo.status !== TODO_STATUS.DONE) {
+                return date;
+            }
+        }
+
+        return null; // Todas as datas estão concluídas
     }
 
     async updateNotes(userId: string, date: string, habitId: string, notes: string): Promise<void> {

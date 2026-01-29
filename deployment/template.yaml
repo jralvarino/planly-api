@@ -365,6 +365,60 @@ Resources:
             Timeout: 30
             MemorySize: 256
 
+    # IAM Role for Stats Job Lambda
+    StatsJobLambdaExecutionRole:
+        Type: AWS::IAM::Role
+        Properties:
+            RoleName: planly-api-stats-job-lambda-role
+            AssumeRolePolicyDocument:
+                Version: "2012-10-17"
+                Statement:
+                    - Effect: Allow
+                      Principal:
+                          Service: lambda.amazonaws.com
+                      Action: sts:AssumeRole
+            ManagedPolicyArns:
+                - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+            Policies:
+                - PolicyName: DynamoDBAccess
+                  PolicyDocument:
+                      Version: "2012-10-17"
+                      Statement:
+                          - Effect: Allow
+                            Action:
+                                - dynamodb:PutItem
+                                - dynamodb:GetItem
+                                - dynamodb:UpdateItem
+                                - dynamodb:Query
+                                - dynamodb:Scan
+                            Resource:
+                                - !GetAtt UserTable.Arn
+                                - !Sub "${UserTable.Arn}/index/*"
+                                - !GetAtt TodoTable.Arn
+                                - !Sub "${TodoTable.Arn}/index/*"
+                                - !GetAtt HabitTable.Arn
+                                - !Sub "${HabitTable.Arn}/index/*"
+                                - !GetAtt StatsTable.Arn
+                                - !Sub "${StatsTable.Arn}/index/*"
+
+    # Stats Job Lambda (daily 00:01 UTC)
+    StatsJobLambdaFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            FunctionName: planly-api-stats-job-lambda
+            Runtime: nodejs20.x
+            Handler: dist/handlers/stats-job/index.handler
+            CodeUri: ..
+            Role: !GetAtt StatsJobLambdaExecutionRole.Arn
+            Timeout: 120
+            MemorySize: 256
+            Events:
+                DailyStatsJob:
+                    Type: Schedule
+                    Properties:
+                        Schedule: cron(1 0 * * ? *)
+                        Description: Update stats for previous day (habits without Todo)
+
 Outputs:
     ApiUrl:
         Description: API Gateway endpoint URL

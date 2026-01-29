@@ -6,6 +6,8 @@ import { TodoRepository } from "../repositories/TodoRepository.js";
 import { NotFoundError } from "../errors/PlanlyError.js";
 import { parseDayOfWeek } from "../utils/util.js";
 import { TODO_STATUS, TodoStatus } from "../constants/todo.constants.js";
+import { StatsService } from "./StatsService.js";
+import { StatsRepository } from "../repositories/StatsRepository.js";
 
 export interface UpdateStatusParams {
     userId: string;
@@ -19,6 +21,7 @@ export interface UpdateStatusParams {
 export class TodoService {
     private habitRepository = new HabitRepository();
     private todoRepository = new TodoRepository();
+    private statsService = new StatsService();
 
     async createOrUpdate(params: UpdateStatusParams): Promise<Todo> {
         const { userId, habitId, date, progressValue, status } = params;
@@ -51,6 +54,9 @@ export class TodoService {
 
         //It will create a new item if it doesn't exist or update the existing one
         await this.todoRepository.createOrUpdate(todo);
+
+        this.statsService.updateStatsOnTodoStatusChange({userId, habitId, categoryId: habit.categoryId, date, newStatus: status, previousStatus: existing?.status || TODO_STATUS.PENDING });
+
         return todo;
     }
 
@@ -64,7 +70,10 @@ export class TodoService {
 
         const todoList: TodoList[] = await Promise.all(
             elegibleHabits.map(async (habit) => {
+
                 const todo = await this.todoRepository.findByUserDateAndHabit(userId, date, habit.id);
+
+                const currentStreak = await this.statsService.getHabitStreak(userId, habit.id);
 
                 return {
                     id: habit.id,
@@ -79,6 +88,7 @@ export class TodoService {
                     status: todo?.status || TODO_STATUS.PENDING,
                     progressValue: todo?.progress?.toString() || "0",
                     notes: todo?.notes || "",
+                    streak: currentStreak,
                     updatedAt: todo?.updatedAt || habit.updatedAt,
                 };
             })
@@ -214,7 +224,7 @@ function getProgressValue(
     return 0;
 }
 
-function isValidForTargetDate(habit: Habit, date: Date): boolean {
+export function isValidForTargetDate(habit: Habit, date: Date): boolean {
     const targetDate = date.toISOString().split("T")[0];
 
     if (habit.end_date) {

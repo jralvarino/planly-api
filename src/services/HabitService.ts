@@ -3,10 +3,13 @@ import { Habit } from "../models/Habit.js";
 import { NotFoundError } from "../errors/PlanlyError.js";
 import { v4 as uuidv4 } from "uuid";
 import { StatsService } from "./StatsService.js";
+import { TodoRepository } from "../repositories/TodoRepository.js";
+import { isValidForTargetDate } from "./TodoService.js";
 
 export class HabitService {
     private repository = new HabitRepository();
     private statsService = new StatsService();
+    private todoRepository = new TodoRepository();
 
     async create(userId: string, habitData: Partial<Habit>): Promise<Habit> {
         const now = new Date().toISOString();
@@ -93,5 +96,22 @@ export class HabitService {
         }
 
         await this.repository.delete(id);
+    }
+
+    async getScheduledDates(habit: Habit, endDate: string): Promise<string[]> {
+        const todoValidList: string[] = [];
+        let currentDate = habit.start_date;
+
+        while(currentDate <= endDate) {
+            if(isValidForTargetDate(habit, new Date(habit.start_date))) {
+                todoValidList.push(currentDate);
+            }
+            const [y, m, d] = currentDate.split("-").map(Number);
+            const next = new Date(y, m - 1, d);
+            next.setDate(next.getDate() + 1);
+            currentDate = next.toISOString().slice(0, 10);
+        }
+
+        return todoValidList;
     }
 }

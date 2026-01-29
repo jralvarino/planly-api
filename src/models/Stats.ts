@@ -10,7 +10,6 @@ export interface Stats {
     currentStreak: number;
     longestStreak: number;
     lastCompletedDate?: string; 
-    lastStreakStartDate?: string; 
     totalCompletions: number; 
     createdAt: string;
     updatedAt: string;    

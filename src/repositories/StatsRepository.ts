@@ -28,12 +28,11 @@ export class StatsRepository {
                 TableName: DYNAMO_TABLES.STATS,
                 Key: { PK, SK },
                 UpdateExpression:
-                    "SET #currentStreak = :currentStreak, #longestStreak = :longestStreak, #lastCompletedDate = :lastCompletedDate, #lastStreakStartDate = :lastStreakStartDate, #totalCompletions = :totalCompletions, #updatedAt = :updatedAt",
+                    "SET #currentStreak = :currentStreak, #longestStreak = :longestStreak, #lastCompletedDate = :lastCompletedDate, #totalCompletions = :totalCompletions, #updatedAt = :updatedAt",
                 ExpressionAttributeNames: {
                     "#currentStreak": "currentStreak",
                     "#longestStreak": "longestStreak",
                     "#lastCompletedDate": "lastCompletedDate",
-                    "#lastStreakStartDate": "lastStreakStartDate",
                     "#totalCompletions": "totalCompletions",
                     "#updatedAt": "updatedAt",
                 },

@@ -73,7 +73,7 @@ export class TodoService {
 
                 const todo = await this.todoRepository.findByUserDateAndHabit(userId, date, habit.id);
 
-                const currentStreak = await this.statsService.getHabitStreak(userId, habit.id);
+                const currentStreak = await this.statsService.getHabitStats({ scope: "HABIT", userId, habitId: habit.id, categoryId: habit.categoryId });
 
                 return {
                     id: habit.id,
@@ -88,7 +88,7 @@ export class TodoService {
                     status: todo?.status || TODO_STATUS.PENDING,
                     progressValue: todo?.progress?.toString() || "0",
                     notes: todo?.notes || "",
-                    streak: currentStreak,
+                    streak: currentStreak.currentStreak,
                     updatedAt: todo?.updatedAt || habit.updatedAt,
                 };
             })

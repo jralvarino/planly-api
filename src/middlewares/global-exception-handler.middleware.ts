@@ -101,8 +101,6 @@ export const globalExceptionHandler = (): MiddlewareObj<APIGatewayProxyEvent, AP
                 body: JSON.stringify(errorResponse.body),
             };
 
-            console.log("ERROR:", request.response);
-
             return;
         },
     };

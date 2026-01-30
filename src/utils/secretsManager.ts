@@ -25,7 +25,6 @@ export async function getJwtSecret(): Promise<string> {
         const localSecret = process.env.JWT_SECRET;
         if (localSecret) {
             cachedSecret = localSecret;
-            console.log("🔑 Usando JWT_SECRET da variável de ambiente (ambiente local)");
             return cachedSecret;
         }
     }
@@ -66,7 +65,6 @@ export async function getJwtSecret(): Promise<string> {
         }
 
         cachedSecret = secretValue;
-        console.log(`🔑 Secret JWT recuperado da AWS Secrets Manager: ${SECRET_NAME}`);
 
         return cachedSecret;
     } catch (error: any) {

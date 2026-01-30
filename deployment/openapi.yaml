@@ -802,6 +802,55 @@ paths:
                             method.response.header.Access-Control-Allow-Origin: "'*'"
                             method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS,PATCH'"
                             method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+    /stats/globalStreak:
+        get:
+            summary: Get global streak for the authenticated user
+            operationId: getGlobalStreak
+            security:
+                - bearerAuth: []
+            responses:
+                "200":
+                    description: Global streak (current streak of USER stats)
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    currentStreak:
+                                        type: integer
+                                        description: Current streak in days
+            x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri:
+                    Fn::Sub: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TodoLambdaFunction.Arn}/invocations"
+        options:
+            summary: CORS preflight
+            operationId: optionsStatsGlobalStreak
+            responses:
+                "200":
+                    description: CORS response
+                    headers:
+                        Access-Control-Allow-Origin:
+                            schema:
+                                type: string
+                        Access-Control-Allow-Methods:
+                            schema:
+                                type: string
+                        Access-Control-Allow-Headers:
+                            schema:
+                                type: string
+            x-amazon-apigateway-integration:
+                type: mock
+                requestTemplates:
+                    application/json: '{"statusCode": 200}'
+                responses:
+                    default:
+                        statusCode: "200"
+                        responseParameters:
+                            method.response.header.Access-Control-Allow-Origin: "'*'"
+                            method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
     /habits/{id}:
         get:
             summary: Get habit by ID

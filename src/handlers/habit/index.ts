@@ -6,10 +6,12 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 
 import { routes } from "../../controllers/habit.controller.js";
 import { globalExceptionHandler } from "../../middlewares/global-exception-handler.middleware.js";
+import { requestLoggingMiddleware } from "../../middlewares/request-logging.middleware.js";
 
 const handler = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(jsonBodyParser({ disableContentTypeCheck: true } as any))
     .use(httpEventNormalizer())
+    .use(requestLoggingMiddleware())
     .use(globalExceptionHandler())
     .handler(httpRouterHandler(routes));
 

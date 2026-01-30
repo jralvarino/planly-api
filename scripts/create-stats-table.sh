@@ -88,7 +88,6 @@ if [ $? -eq 0 ]; then
     echo "   - currentStreak (number)"
     echo "   - longestStreak (number)"
     echo "   - lastCompletedDate (string, opcional, formato YYYY-MM-DD)"
-    echo "   - lastStreakStartDate (string, opcional, formato YYYY-MM-DD)"
     echo "   - totalCompletions (number)"
     echo "   - createdAt (string)"
     echo "   - updatedAt (string)"

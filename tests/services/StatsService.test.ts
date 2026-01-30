@@ -10,6 +10,7 @@ const {
     mockGetScheduledDates,
     mockFindAllByDateRange,
     mockFindByUserDateAndHabit,
+    mockGetTodoListByDate,
 } = vi.hoisted(() => ({
     mockUpdateStreakFields: vi.fn(),
     mockGet: vi.fn(),
@@ -18,6 +19,7 @@ const {
     mockGetScheduledDates: vi.fn(),
     mockFindAllByDateRange: vi.fn(),
     mockFindByUserDateAndHabit: vi.fn(),
+    mockGetTodoListByDate: vi.fn(),
 }));
 
 vi.mock("../../src/repositories/StatsRepository.js", () => ({
@@ -42,6 +44,12 @@ vi.mock("../../src/services/HabitService.js", () => ({
     })),
 }));
 
+vi.mock("../../src/services/TodoService.js", () => ({
+    TodoService: vi.fn().mockImplementation(() => ({
+        getTodoListByDate: mockGetTodoListByDate,
+    })),
+}));
+
 vi.mock("../../src/utils/util.js", () => ({
     todayISO: (...args: unknown[]) => mockTodayISO(...args),
     addDays: vi.fn((date: string, delta: number) => {
@@ -56,6 +64,7 @@ describe("StatsService", () => {
     describe("updateStatsOnTodoStatusChange", () => {
         beforeEach(() => {
             vi.clearAllMocks();
+            mockGetTodoListByDate.mockResolvedValue([]);
         });
 
         it("returns early when newStatus equals previousStatus (DONE)", async () => {
@@ -388,6 +397,270 @@ describe("StatsService", () => {
             const [, , fields] = mockUpdateStreakFields.mock.calls[0];
             expect(fields.currentStreak).toBe(5);
             expect(fields.longestStreak).toBe(5);
+        });
+
+        it("Academia scenario: habit Mon/Wed/Fri, 25-30 Jan, 27 Pending 29 Done → change 27 to Done → currentStreak 2, longestStreak 2", async () => {
+            // Habit: Academia, Segunda/Quarta/Sexta. Jan 2025: 27=Mon, 29=Wed (scheduled in 25-30). 26 Pending, 28 Done, 30 Done (user labels); for habit only 27,29 matter. 27 Pending, 29 Done → change 27 to Done → 27+29 both done.
+            mockTodayISO.mockReturnValue("2025-01-30");
+            mockGetHabitById.mockResolvedValue({
+                id: "habit-academia",
+                userId: "user-1",
+                categoryId: "cat-1",
+                start_date: "2025-01-25",
+                end_date: "2025-01-30",
+                period_type: "specific_days_week",
+                period_value: "MON,WED,FRI",
+            });
+            mockGetScheduledDates.mockResolvedValue(["2025-01-27", "2025-01-29"]);
+            mockFindAllByDateRange.mockResolvedValue([
+                { habitId: "habit-academia", date: "2025-01-27", status: TODO_STATUS.DONE },
+                { habitId: "habit-academia", date: "2025-01-29", status: TODO_STATUS.DONE },
+            ]);
+
+            const service = new StatsService();
+            await service.updateStatsOnTodoStatusChange({
+                userId: "user-1",
+                habitId: "habit-academia",
+                categoryId: "cat-1",
+                date: "2025-01-27",
+                newStatus: TODO_STATUS.DONE,
+                previousStatus: TODO_STATUS.PENDING,
+            });
+
+            expect(mockUpdateStreakFields).toHaveBeenCalled();
+            const [, , fields] = mockUpdateStreakFields.mock.calls[0];
+            expect(fields.currentStreak).toBe(2);
+            expect(fields.longestStreak).toBe(2);
+            expect(fields.totalCompletions).toBe(2);
+        });
+    });
+
+    describe("updateCategoryStatsIncremental (via updateStatsOnTodoStatusChange)", () => {
+        const today = "2025-01-15";
+        const yesterday = "2025-01-14";
+
+        beforeEach(() => {
+            vi.clearAllMocks();
+            mockTodayISO.mockReturnValue(today);
+            mockGetTodoListByDate.mockResolvedValue([]);
+        });
+
+        function getCategoryUpdateCall() {
+            const calls = mockUpdateStreakFields.mock.calls;
+            const idx = calls.findIndex(([pk, sk]) => sk === "STATS#CATEGORY#cat-1");
+            return idx >= 0 ? calls[idx] : null;
+        }
+
+        it("updates category stats when all todos of category today are DONE (new streak)", async () => {
+            mockGet.mockImplementation((_pk: string, sk: string) => {
+                if (sk.includes("CATEGORY")) {
+                    return Promise.resolve({
+                        currentStreak: 0,
+                        longestStreak: 0,
+                        totalCompletions: 0,
+                    });
+                }
+                return Promise.resolve({
+                    currentStreak: 0,
+                    longestStreak: 0,
+                    totalCompletions: 0,
+                });
+            });
+            mockGetTodoListByDate.mockResolvedValue([
+                { id: "habit-1", categoryId: "cat-1", status: TODO_STATUS.DONE },
+                { id: "habit-2", categoryId: "cat-1", status: TODO_STATUS.DONE },
+            ]);
+
+            const service = new StatsService();
+            await service.updateStatsOnTodoStatusChange({
+                userId: "user-1",
+                habitId: "habit-1",
+                categoryId: "cat-1",
+                date: today,
+                newStatus: TODO_STATUS.DONE,
+                previousStatus: TODO_STATUS.PENDING,
+            });
+
+            const categoryCall = getCategoryUpdateCall();
+            expect(categoryCall).not.toBeNull();
+            const [, , fields] = categoryCall!;
+            expect(fields.currentStreak).toBe(1);
+            expect(fields.totalCompletions).toBe(1);
+            expect(fields.lastCompletedDate).toBe(today);
+        });
+
+        it("updates category stats when all todos of category today are DONE (extends streak)", async () => {
+            mockGet.mockImplementation((_pk: string, sk: string) => {
+                if (sk.includes("CATEGORY")) {
+                    return Promise.resolve({
+                        currentStreak: 1,
+                        longestStreak: 1,
+                        lastCompletedDate: yesterday,
+                        totalCompletions: 1,
+                    });
+                }
+                return Promise.resolve({
+                    currentStreak: 0,
+                    longestStreak: 0,
+                    totalCompletions: 0,
+                });
+            });
+            mockGetTodoListByDate.mockResolvedValue([
+                { id: "habit-1", categoryId: "cat-1", status: TODO_STATUS.DONE },
+                { id: "habit-2", categoryId: "cat-1", status: TODO_STATUS.DONE },
+            ]);
+
+            const service = new StatsService();
+            await service.updateStatsOnTodoStatusChange({
+                userId: "user-1",
+                habitId: "habit-1",
+                categoryId: "cat-1",
+                date: today,
+                newStatus: TODO_STATUS.DONE,
+                previousStatus: TODO_STATUS.PENDING,
+            });
+
+            const categoryCall = getCategoryUpdateCall();
+            expect(categoryCall).not.toBeNull();
+            const [, , fields] = categoryCall!;
+            expect(fields.currentStreak).toBe(2);
+            expect(fields.totalCompletions).toBe(2);
+            expect(fields.lastCompletedDate).toBe(today);
+        });
+
+        it("updates category stats when user unmarked one todo and yesterday was all complete (decrements streak)", async () => {
+            mockGet.mockImplementation((_pk: string, sk: string) => {
+                if (sk.includes("CATEGORY")) {
+                    return Promise.resolve({
+                        currentStreak: 2,
+                        longestStreak: 2,
+                        lastCompletedDate: today,
+                        totalCompletions: 2,
+                    });
+                }
+                return Promise.resolve({
+                    currentStreak: 0,
+                    longestStreak: 0,
+                    totalCompletions: 0,
+                });
+            });
+            mockGetTodoListByDate.mockImplementation((_userId: string, date: string) => {
+                if (date === today) {
+                    return Promise.resolve([
+                        { id: "habit-1", categoryId: "cat-1", status: TODO_STATUS.DONE },
+                        { id: "habit-2", categoryId: "cat-1", status: TODO_STATUS.PENDING },
+                    ]);
+                }
+                if (date === yesterday) {
+                    return Promise.resolve([
+                        { id: "habit-1", categoryId: "cat-1", status: TODO_STATUS.DONE },
+                        { id: "habit-2", categoryId: "cat-1", status: TODO_STATUS.DONE },
+                    ]);
+                }
+                return Promise.resolve([]);
+            });
+
+            const service = new StatsService();
+            await service.updateStatsOnTodoStatusChange({
+                userId: "user-1",
+                habitId: "habit-1",
+                categoryId: "cat-1",
+                date: today,
+                newStatus: TODO_STATUS.PENDING,
+                previousStatus: TODO_STATUS.DONE,
+            });
+
+            const categoryCall = getCategoryUpdateCall();
+            expect(categoryCall).not.toBeNull();
+            const [, , fields] = categoryCall!;
+            expect(fields.currentStreak).toBe(1);
+            expect(fields.totalCompletions).toBe(1);
+            expect(fields.lastCompletedDate).toBe(yesterday);
+        });
+
+        it("updates category stats when user unmarked one todo and yesterday was not all complete (resets streak)", async () => {
+            mockGet.mockImplementation((_pk: string, sk: string) => {
+                if (sk.includes("CATEGORY")) {
+                    return Promise.resolve({
+                        currentStreak: 2,
+                        longestStreak: 2,
+                        lastCompletedDate: today,
+                        totalCompletions: 2,
+                    });
+                }
+                return Promise.resolve({
+                    currentStreak: 0,
+                    longestStreak: 0,
+                    totalCompletions: 0,
+                });
+            });
+            mockGetTodoListByDate.mockImplementation((_userId: string, date: string) => {
+                if (date === today) {
+                    return Promise.resolve([
+                        { id: "habit-1", categoryId: "cat-1", status: TODO_STATUS.PENDING },
+                        { id: "habit-2", categoryId: "cat-1", status: TODO_STATUS.DONE },
+                    ]);
+                }
+                if (date === yesterday) {
+                    return Promise.resolve([
+                        { id: "habit-1", categoryId: "cat-1", status: TODO_STATUS.PENDING },
+                        { id: "habit-2", categoryId: "cat-1", status: TODO_STATUS.DONE },
+                    ]);
+                }
+                return Promise.resolve([]);
+            });
+
+            const service = new StatsService();
+            await service.updateStatsOnTodoStatusChange({
+                userId: "user-1",
+                habitId: "habit-1",
+                categoryId: "cat-1",
+                date: today,
+                newStatus: TODO_STATUS.PENDING,
+                previousStatus: TODO_STATUS.DONE,
+            });
+
+            const categoryCall = getCategoryUpdateCall();
+            expect(categoryCall).not.toBeNull();
+            const [, , fields] = categoryCall!;
+            expect(fields.currentStreak).toBe(0);
+            expect(fields.totalCompletions).toBe(1);
+            expect(fields.lastCompletedDate).toBeUndefined();
+        });
+
+        it("does not update category stats when not all complete and lastCompletedDate is not today", async () => {
+            mockGet.mockImplementation((_pk: string, sk: string) => {
+                if (sk.includes("CATEGORY")) {
+                    return Promise.resolve({
+                        currentStreak: 1,
+                        longestStreak: 1,
+                        lastCompletedDate: "2025-01-10",
+                        totalCompletions: 1,
+                    });
+                }
+                return Promise.resolve({
+                    currentStreak: 0,
+                    longestStreak: 0,
+                    totalCompletions: 0,
+                });
+            });
+            mockGetTodoListByDate.mockResolvedValue([
+                { id: "habit-1", categoryId: "cat-1", status: TODO_STATUS.DONE },
+                { id: "habit-2", categoryId: "cat-1", status: TODO_STATUS.PENDING },
+            ]);
+
+            const service = new StatsService();
+            await service.updateStatsOnTodoStatusChange({
+                userId: "user-1",
+                habitId: "habit-1",
+                categoryId: "cat-1",
+                date: today,
+                newStatus: TODO_STATUS.DONE,
+                previousStatus: TODO_STATUS.PENDING,
+            });
+
+            const categoryCall = getCategoryUpdateCall();
+            expect(categoryCall).toBeNull();
         });
     });
 });

@@ -4,12 +4,17 @@ import jsonBodyParser from "@middy/http-json-body-parser";
 import httpRouterHandler from "@middy/http-router";
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 
-import { routes } from "../../controllers/todo.controller.js";
+import { routes as todoRoutes } from "../../controllers/todo.controller.js";
+import { routes as statsRoutes } from "../../controllers/stats.controller.js";
 import { globalExceptionHandler } from "../../middlewares/global-exception-handler.middleware.js";
+import { requestLoggingMiddleware } from "../../middlewares/request-logging.middleware.js";
+
+const routes = [...todoRoutes, ...statsRoutes];
 
 const handler = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(jsonBodyParser({ disableContentTypeCheck: true } as any))
     .use(httpEventNormalizer())
+    .use(requestLoggingMiddleware())
     .use(globalExceptionHandler())
     .handler(httpRouterHandler(routes));
 

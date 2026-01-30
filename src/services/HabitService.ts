@@ -8,8 +8,15 @@ import { isValidForTargetDate } from "./TodoService.js";
 
 export class HabitService {
     private repository = new HabitRepository();
-    private statsService = new StatsService();
+    private _statsService: StatsService | null = null;
     private todoRepository = new TodoRepository();
+
+    private get statsService(): StatsService {
+        if (!this._statsService) {
+            this._statsService = new StatsService();
+        }
+        return this._statsService;
+    }
 
     async create(userId: string, habitData: Partial<Habit>): Promise<Habit> {
         const now = new Date().toISOString();
@@ -102,8 +109,8 @@ export class HabitService {
         const todoValidList: string[] = [];
         let currentDate = habit.start_date;
 
-        while(currentDate <= endDate) {
-            if(isValidForTargetDate(habit, new Date(habit.start_date))) {
+        while (currentDate <= endDate) {
+            if (isValidForTargetDate(habit, new Date(habit.start_date))) {
                 todoValidList.push(currentDate);
             }
             const [y, m, d] = currentDate.split("-").map(Number);

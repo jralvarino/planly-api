@@ -158,7 +158,6 @@ export class StatsService {
         let longestStreak = 0;
         let run = 0;
         let lastCompletedDate: string | undefined;
-        let lastStreakStartDate: string | undefined;
         let runStartDate: string | undefined;
         let lastRunLengthWhenGap = 0;
         let lastRunStartWhenGap: string | undefined;
@@ -181,24 +180,20 @@ export class StatsService {
 
         if (run > 0) {
             currentStreak = run;
-            lastStreakStartDate = runStartDate;
         } else {
             currentStreak = lastRunLengthWhenGap;
-            lastStreakStartDate = lastRunStartWhenGap;
         }
 
         await this.repository.updateStreakFields(this.generatePK(userId), this.generateSK("HABIT", habitId, ""), {
             currentStreak,
             longestStreak,
             lastCompletedDate,
-            lastStreakStartDate,
             totalCompletions: completedDates.size,
         });
         logger.info(`Stats updated for habit ${habitId} for user ${userId}`, {
             currentStreak,
             longestStreak,
             lastCompletedDate,
-            lastStreakStartDate,
             totalCompletions: completedDates.size,
         });
     }

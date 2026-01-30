@@ -5,6 +5,9 @@ node_modules/
 dist/
 .aws-sam/
 
+# Coverage
+coverage/
+
 # Environment variables
 .env
 

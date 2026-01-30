@@ -160,6 +160,8 @@ export class StatsService {
         let lastCompletedDate: string | undefined;
         let lastStreakStartDate: string | undefined;
         let runStartDate: string | undefined;
+        let lastRunLengthWhenGap = 0;
+        let lastRunStartWhenGap: string | undefined;
 
         for (const date of sortedAsc) {
             if (completedDates.has(date)) {
@@ -168,13 +170,22 @@ export class StatsService {
                 longestStreak = Math.max(longestStreak, run);
                 lastCompletedDate = date;
             } else {
+                if (run > 0) {
+                    lastRunLengthWhenGap = run;
+                    lastRunStartWhenGap = runStartDate;
+                }
                 run = 0;
                 runStartDate = undefined;
             }
         }
 
-        currentStreak = run;
-        lastStreakStartDate = runStartDate;
+        if (run > 0) {
+            currentStreak = run;
+            lastStreakStartDate = runStartDate;
+        } else {
+            currentStreak = lastRunLengthWhenGap;
+            lastStreakStartDate = lastRunStartWhenGap;
+        }
 
         await this.repository.updateStreakFields(this.generatePK(userId), this.generateSK("HABIT", habitId, ""), {
             currentStreak,
@@ -188,7 +199,7 @@ export class StatsService {
             longestStreak,
             lastCompletedDate,
             lastStreakStartDate,
-            totalCompletions,
+            totalCompletions: completedDates.size,
         });
     }
 

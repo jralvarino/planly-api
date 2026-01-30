@@ -55,7 +55,7 @@ export class TodoService {
         //It will create a new item if it doesn't exist or update the existing one
         await this.todoRepository.createOrUpdate(todo);
 
-        this.statsService.updateStatsOnTodoStatusChange({userId, habitId, categoryId: habit.categoryId, date, newStatus: status, previousStatus: existing?.status || TODO_STATUS.PENDING });
+        await this.statsService.updateStatsOnTodoStatusChange({userId, habitId, categoryId: habit.categoryId, date, newStatus: status, previousStatus: existing?.status || TODO_STATUS.PENDING });
 
         return todo;
     }

@@ -1,4 +1,4 @@
-import { DeleteCommand, GetCommand, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { DeleteCommand, GetCommand, PutCommand, QueryCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { ddb } from "../db/dynamoClient.js";
 import { Habit } from "../models/Habit.js";
 import { DYNAMO_TABLES } from "../db/dynamodb.tables.js";
@@ -78,5 +78,22 @@ export class HabitRepository {
                 Key: { id },
             })
         );
+    }
+
+    /** Returns all habits (used by stats-midnight job). Paginates automatically. */
+    async findAll(): Promise<Habit[]> {
+        const items: Habit[] = [];
+        let lastKey: Record<string, unknown> | undefined;
+        do {
+            const result = await ddb.send(
+                new ScanCommand({
+                    TableName: DYNAMO_TABLES.HABIT,
+                    ExclusiveStartKey: lastKey,
+                })
+            );
+            items.push(...((result.Items as Habit[]) || []));
+            lastKey = result.LastEvaluatedKey;
+        } while (lastKey);
+        return items;
     }
 }

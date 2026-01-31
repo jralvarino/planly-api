@@ -365,6 +365,81 @@ Resources:
             Timeout: 30
             MemorySize: 256
 
+    # ============================================
+    # Stats Midnight Job (streak recalc 00:01)
+    # ============================================
+
+    # IAM Role for Stats Midnight Lambda
+    StatsMidnightLambdaExecutionRole:
+        Type: AWS::IAM::Role
+        Properties:
+            RoleName: planly-api-stats-midnight-lambda-role
+            AssumeRolePolicyDocument:
+                Version: "2012-10-17"
+                Statement:
+                    - Effect: Allow
+                      Principal:
+                          Service: lambda.amazonaws.com
+                      Action: sts:AssumeRole
+            ManagedPolicyArns:
+                - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+            Policies:
+                - PolicyName: DynamoDBAccess
+                  PolicyDocument:
+                      Version: "2012-10-17"
+                      Statement:
+                          - Effect: Allow
+                            Action:
+                                - dynamodb:PutItem
+                                - dynamodb:GetItem
+                                - dynamodb:UpdateItem
+                                - dynamodb:Query
+                                - dynamodb:Scan
+                            Resource:
+                                - !GetAtt CategoryTable.Arn
+                                - !Sub "${CategoryTable.Arn}/index/*"
+                                - !GetAtt UserTable.Arn
+                                - !Sub "${UserTable.Arn}/index/*"
+                                - !GetAtt HabitTable.Arn
+                                - !Sub "${HabitTable.Arn}/index/*"
+                                - !GetAtt TodoTable.Arn
+                                - !Sub "${TodoTable.Arn}/index/*"
+                                - !GetAtt StatsTable.Arn
+                                - !Sub "${StatsTable.Arn}/index/*"
+
+    # Stats Midnight Lambda Function
+    StatsMidnightLambdaFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            FunctionName: planly-api-stats-midnight-lambda
+            Runtime: nodejs20.x
+            Handler: dist/handlers/stats-midnight/index.handler
+            CodeUri: ..
+            Role: !GetAtt StatsMidnightLambdaExecutionRole.Arn
+            Timeout: 120
+            MemorySize: 256
+
+    # EventBridge Rule: run daily at 00:01 UTC (03:01 BRT = cron(1 3 * * ? *))
+    StatsMidnightScheduleRule:
+        Type: AWS::Events::Rule
+        Properties:
+            Name: planly-stats-midnight-schedule
+            Description: Trigger stats midnight job daily at 00:01 UTC
+            ScheduleExpression: cron(1 0 * * ? *)
+            State: ENABLED
+            Targets:
+                - Id: StatsMidnightLambda
+                  Arn: !GetAtt StatsMidnightLambdaFunction.Arn
+
+    # Permission for EventBridge to invoke the Lambda
+    StatsMidnightLambdaEventBridgePermission:
+        Type: AWS::Lambda::Permission
+        Properties:
+            FunctionName: !Ref StatsMidnightLambdaFunction
+            Action: lambda:InvokeFunction
+            Principal: events.amazonaws.com
+            SourceArn: !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/planly-stats-midnight-schedule"
+
 Outputs:
     ApiUrl:
         Description: API Gateway endpoint URL
@@ -419,3 +494,15 @@ Outputs:
         Value: !Ref TodoTable
         Export:
             Name: !Sub "${AWS::StackName}-TodoTableName"
+
+    StatsMidnightLambdaFunctionName:
+        Description: Stats Midnight Lambda Function Name
+        Value: !Ref StatsMidnightLambdaFunction
+        Export:
+            Name: !Sub "${AWS::StackName}-StatsMidnightLambdaFunctionName"
+
+    StatsMidnightScheduleRuleName:
+        Description: EventBridge rule for stats midnight job
+        Value: !Ref StatsMidnightScheduleRule
+        Export:
+            Name: !Sub "${AWS::StackName}-StatsMidnightScheduleRuleName"

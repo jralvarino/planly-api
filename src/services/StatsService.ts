@@ -185,6 +185,26 @@ export class StatsService {
         }
     }
 
+    /**
+     * Recalculates streaks for habit, category and user (e.g. after midnight when no TODO existed for yesterday).
+     * Used by the stats-midnight Lambda job.
+     */
+    async recalculateStreaksAfterMidnight(userId: string, habitId: string, categoryId: string): Promise<void> {
+        const scopes = ["HABIT", "CATEGORY", "USER"] as const;
+        const results = await Promise.allSettled([
+            this.habitStatsUpdater.recalculate(userId, habitId),
+            this.categoryStatsUpdater.recalculate(userId, categoryId),
+            this.userStatsUpdater.recalculate(userId),
+        ]);
+        this.throwIfStatsUpdatesFailed(results, scopes, {
+            userId,
+            habitId,
+            date: "", // not used for midnight job
+            categoryId,
+            mode: "midnight_recalculate",
+        });
+    }
+
     async getHabitStreak(userId: string, habitId: string): Promise<number> {
         const stats = await this.repository.get(generatePK(userId), generateSK("HABIT", habitId, ""));
         return stats?.currentStreak ?? 0;

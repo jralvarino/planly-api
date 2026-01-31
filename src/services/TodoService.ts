@@ -1,3 +1,4 @@
+import { injectable } from "tsyringe";
 import { HabitRepository } from "../repositories/HabitRepository.js";
 import { Habit } from "../models/Habit.js";
 import { TodoList } from "../models/TodoList.js";
@@ -5,9 +6,10 @@ import { Todo } from "../models/Todo.js";
 import { TodoRepository } from "../repositories/TodoRepository.js";
 import { NotFoundError } from "../errors/PlanlyError.js";
 import { parseDayOfWeek } from "../utils/util.js";
-import { TODO_STATUS, TodoStatus } from "../constants/todo.constants.js";
+import { datesRange } from "./stats/dateUtils.js";
+import { TODO_STATUS, TODO_STATUS_ORDER, TODO_PERIOD_ORDER, TodoStatus } from "../constants/todo.constants.js";
 import { StatsService } from "./StatsService.js";
-import { StatsRepository } from "../repositories/StatsRepository.js";
+import { logger } from "../utils/logger.js";
 
 export interface UpdateStatusParams {
     userId: string;
@@ -18,21 +20,24 @@ export interface UpdateStatusParams {
     notes?: string;
 }
 
+@injectable()
 export class TodoService {
-    private habitRepository = new HabitRepository();
-    private todoRepository = new TodoRepository();
-    private statsService = new StatsService();
+    constructor(
+        private readonly habitRepository: HabitRepository,
+        private readonly todoRepository: TodoRepository,
+        private readonly statsService: StatsService
+    ) {}
 
     async createOrUpdate(params: UpdateStatusParams): Promise<Todo> {
         const { userId, habitId, date, progressValue, status } = params;
 
-        // Verificar se o hábito existe e pertence ao usuário
         const habit = await this.habitRepository.findById(habitId);
         if (!habit || habit.userId !== userId) {
+            logger.warn("Todo createOrUpdate: habit not found or user mismatch", { userId, habitId });
             throw new NotFoundError(`Habit ${habitId} not found`);
         }
 
-        // Verificar se o todo existe
+        // Check if todo exists
         const existing = await this.todoRepository.findByUserDateAndHabit(userId, date, habitId);
 
         const now = new Date().toISOString();
@@ -52,24 +57,31 @@ export class TodoService {
             updatedAt: now,
         };
 
-        //It will create a new item if it doesn't exist or update the existing one
         await this.todoRepository.createOrUpdate(todo);
+        logger.debug("Todo createOrUpdate saved", { userId, habitId, date, status });
 
-        await this.statsService.updateStatsOnTodoStatusChange({userId, habitId, categoryId: habit.categoryId, date, newStatus: status, previousStatus: existing?.status || TODO_STATUS.PENDING });
+        await this.statsService.updateStatsOnTodoStatusChange({
+            userId,
+            habitId,
+            categoryId: habit.categoryId,
+            date,
+            newStatus: status,
+            previousStatus: existing?.status || TODO_STATUS.PENDING,
+        });
 
         return todo;
     }
 
     async getTodoListByDate(userId: string, date: string): Promise<TodoList[]> {
-        // Buscar todos os hábitos do usuário dentro da data informada
+        // Fetch all user habits for the given date
         const habits = await this.habitRepository.findAllByDate(userId, date);
 
         const targetDate = new Date(date);
 
-        const elegibleHabits = habits.filter((habit) => isValidForTargetDate(habit, targetDate));
+        const eligibleHabits = habits.filter((habit) => isValidForTargetDate(habit, targetDate));
 
         const todoList: TodoList[] = await Promise.all(
-            elegibleHabits.map(async (habit) => {
+            eligibleHabits.map(async (habit) => {
 
                 const todo = await this.todoRepository.findByUserDateAndHabit(userId, date, habit.id);
 
@@ -94,48 +106,25 @@ export class TodoService {
             })
         );
 
-        // Ordenar: 1) pending primeiro, done por último; 2) depois por period (Morning, Afternoon, Evening, Anytime)
-        const periodOrder: Record<string, number> = {
-            Morning: 1,
-            Afternoon: 2,
-            Evening: 3,
-            Anytime: 4,
-        };
-
         return todoList.sort((a, b) => {
-            // Primeiro ordena por status: pending (0) primeiro, skiped (1) no meio, done (2) por último
-            const statusOrder: Record<TodoStatus, number> = {
-                [TODO_STATUS.PENDING]: 0,
-                [TODO_STATUS.SKIPPED]: 1,
-                [TODO_STATUS.DONE]: 2,
-            };
-            const statusA = statusOrder[a.status] ?? 999;
-            const statusB = statusOrder[b.status] ?? 999;
+            const statusA = TODO_STATUS_ORDER[a.status] ?? 999;
+            const statusB = TODO_STATUS_ORDER[b.status] ?? 999;
             const statusDiff = statusA - statusB;
             if (statusDiff !== 0) {
                 return statusDiff;
             }
-            // Se o status for igual, ordena por period
-            const periodDiff = (periodOrder[a.period] || 999) - (periodOrder[b.period] || 999);
+            // If status is equal, sort by period
+            const periodDiff = (TODO_PERIOD_ORDER[a.period] || 999) - (TODO_PERIOD_ORDER[b.period] || 999);
             return periodDiff;
         });
     }
 
     async getDailySummary(userId: string, startDate: string, endDate: string) {
-        // Gerar range de datas
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        const dates: string[] = [];
-        const currentDate = new Date(start);
-
-        while (currentDate <= end) {
-            dates.push(currentDate.toISOString().split("T")[0]);
-            currentDate.setDate(currentDate.getDate() + 1);
-        }
+        const dates = datesRange(startDate, endDate);
 
         const dailyStats = await Promise.all(
             dates.map(async (date) => {
-                // Buscar todos os hábitos válidos para esta data
+                // Fetch all valid habits for this date
                 const todoList: TodoList[] = await this.getTodoListByDate(userId, date);
 
                 // Estatísticas gerais
@@ -153,7 +142,7 @@ export class TodoService {
                     todosByCategory[todo.categoryId].push(todo);
                 });
 
-                // Calcular estatísticas por categoria
+                // Compute stats per category
                 const categories = Object.entries(todosByCategory).map(([categoryId, categoryTodos]) => {
                     const categoryDone = categoryTodos.filter((t) => t.status === TODO_STATUS.DONE).length;
                     const categorySkipped = categoryTodos.filter((t) => t.status === TODO_STATUS.SKIPPED).length;
@@ -186,18 +175,17 @@ export class TodoService {
     }
 
     async updateNotes(userId: string, habitId: string, date: string, notes: string): Promise<void> {
-        // Verificar se o hábito existe e pertence ao usuário
         const habit = await this.habitRepository.findById(habitId);
         if (!habit || habit.userId !== userId) {
+            logger.warn("Todo updateNotes: habit not found or user mismatch", { userId, habitId });
             throw new NotFoundError(`Habit ${habitId} not found`);
         }
 
-        // Verificar se o todo existe
         const existing = await this.todoRepository.findByUserDateAndHabit(userId, date, habitId);
         if (!existing) {
+            logger.debug("Todo updateNotes: no todo exists, creating with PENDING", { userId, habitId, date });
             await this.createOrUpdate({ userId, habitId, date, status: TODO_STATUS.PENDING, progressValue: 0 });
         } else {
-            // Atualizar apenas o notes
             await this.todoRepository.updateNotes(userId, date, habitId, notes);
         }
     }

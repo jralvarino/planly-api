@@ -1,3 +1,4 @@
+import { injectable } from "tsyringe";
 import { HabitRepository } from "../repositories/HabitRepository.js";
 import { Habit } from "../models/Habit.js";
 import { NotFoundError } from "../errors/PlanlyError.js";
@@ -5,15 +6,21 @@ import { v4 as uuidv4 } from "uuid";
 import { StatsService } from "./StatsService.js";
 import { TodoRepository } from "../repositories/TodoRepository.js";
 import { isValidForTargetDate } from "./TodoService.js";
+import { container } from "../container.js";
+import { logger } from "../utils/logger.js";
 
+@injectable()
 export class HabitService {
-    private repository = new HabitRepository();
     private _statsService: StatsService | null = null;
-    private todoRepository = new TodoRepository();
+
+    constructor(
+        private readonly repository: HabitRepository,
+        private readonly todoRepository: TodoRepository
+    ) {}
 
     private get statsService(): StatsService {
         if (!this._statsService) {
-            this._statsService = new StatsService();
+            this._statsService = container.resolve(StatsService);
         }
         return this._statsService;
     }
@@ -44,6 +51,7 @@ export class HabitService {
         } as Habit;
 
         await this.repository.create(habit);
+        logger.debug("Habit created", { userId, habitId: id, categoryId: habit.categoryId });
 
         this.statsService.createStats(userId, id, habit.categoryId);
 
@@ -58,10 +66,12 @@ export class HabitService {
         const habit = await this.repository.findById(id);
 
         if (!habit) {
+            logger.warn("Habit getById: not found", { userId, habitId: id });
             throw new NotFoundError(`Habit ${id} could not be found`);
         }
 
         if (habit.userId !== userId) {
+            logger.warn("Habit getById: user mismatch", { userId, habitId: id });
             throw new NotFoundError(`Habit ${id} could not be found for user ${userId}`);
         }
 
@@ -72,10 +82,12 @@ export class HabitService {
         const existingHabit = await this.repository.findById(id);
 
         if (!existingHabit) {
+            logger.warn("Habit update: not found", { userId, habitId: id });
             throw new NotFoundError(`Habit ${id} could not be found`);
         }
 
         if (existingHabit.userId !== userId) {
+            logger.warn("Habit update: user mismatch", { userId, habitId: id });
             throw new NotFoundError(`Habit ${id} could not be found for user ${userId}`);
         }
 
@@ -95,14 +107,17 @@ export class HabitService {
         const habit = await this.repository.findById(id);
 
         if (!habit) {
+            logger.warn("Habit delete: not found", { userId, habitId: id });
             throw new NotFoundError("Habit not found");
         }
 
         if (habit.userId !== userId) {
+            logger.warn("Habit delete: user mismatch", { userId, habitId: id });
             throw new NotFoundError(`Habit ${id} could not be found for user ${userId}`);
         }
 
         await this.repository.delete(id);
+        logger.debug("Habit deleted", { userId, habitId: id });
     }
 
     async getScheduledDates(habit: Habit, endDate: string): Promise<string[]> {

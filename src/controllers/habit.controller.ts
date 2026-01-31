@@ -1,83 +1,73 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { Route } from "@middy/http-router";
 import middy from "@middy/core";
-import validator from "@middy/validator";
-import { transpileSchema } from "@middy/validator/transpile";
-import {
-    createHabitSchema,
-    updateHabitSchema,
-    getHabitsSchema,
-    getHabitByIdSchema,
-    getHabitsByCategorySchema,
-    deleteHabitSchema,
-} from "../schemas/habit.schemas.js";
 import { HabitService } from "../services/HabitService.js";
-import { authMiddleware } from "../middlewares/auth.middleware.js";
+import { authMiddleware, getUserId } from "../middlewares/auth.middleware.js";
 import { created, success } from "../utils/response.util.js";
+import { container } from "../container.js";
+import { logger } from "../utils/logger.js";
 
-const service = new HabitService();
+const getHabitService = () => container.resolve(HabitService);
 
 const createHabit = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(authMiddleware())
-    //.use(validator({ eventSchema: transpileSchema(createHabitSchema) }))
+    //.use(zodValidator(createHabitSchema))
     .handler(async (event) => {
-        const userId = (event.requestContext?.authorizer as any)?.userId;
+        const userId = getUserId(event);
+        const body = ((event.body ?? {}) as Record<string, unknown>) || {};
 
-        const body = (event.body as any) || {};
-
-        const habit = await service.create(userId, body);
-
+        logger.info("Habit create", { userId, title: body.title });
+        const habit = await getHabitService().create(userId, body);
+        logger.info("Habit created", { userId, habitId: habit.id });
         return created(habit);
     });
 
 const updateHabit = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(authMiddleware())
-    //.use(validator({ eventSchema: transpileSchema(updateHabitSchema) }))
+    //.use(zodValidator(updateHabitSchema))
     .handler(async (event) => {
-        const userId = (event.requestContext?.authorizer as any)?.userId;
-
+        const userId = getUserId(event);
         const id = event.pathParameters!.id!;
-        const body = (event.body as any) || {};
+        const body = ((event.body ?? {}) as Record<string, unknown>) || {};
 
-        const habit = await service.update(userId, id, body);
-
+        logger.info("Habit update", { userId, habitId: id });
+        const habit = await getHabitService().update(userId, id, body);
         return success(habit);
     });
 
 const getAllHabits = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(authMiddleware())
-    //.use(validator({ eventSchema: transpileSchema(getHabitsSchema) }))
+    //.use(zodValidator(getHabitsSchema))
     .handler(async (event) => {
-        const userId = (event.requestContext?.authorizer as any)?.userId;
+        const userId = getUserId(event);
 
-        const habits = await service.getAllHabits(userId);
-
+        logger.info("Habit list", { userId });
+        const habits = await getHabitService().getAllHabits(userId);
+        logger.info("Habit list result", { userId, count: habits.length });
         return success(habits);
     });
 
 const getHabitById = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(authMiddleware())
-    //.use(validator({ eventSchema: transpileSchema(getHabitByIdSchema) }))
+    //.use(zodValidator(getHabitByIdSchema))
     .handler(async (event) => {
-        const userId = (event.requestContext?.authorizer as any)?.userId;
-
+        const userId = getUserId(event);
         const id = event.pathParameters!.id!;
 
-        const habit = await service.getHabitById(userId, id);
-
+        logger.info("Habit getById", { userId, habitId: id });
+        const habit = await getHabitService().getHabitById(userId, id);
         return success(habit);
     });
 
 const deleteHabit = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(authMiddleware())
-    //.use(validator({ eventSchema: transpileSchema(deleteHabitSchema) }))
+    //.use(zodValidator(deleteHabitSchema))
     .handler(async (event) => {
-        const userId = (event.requestContext?.authorizer as any)?.userId;
-
+        const userId = getUserId(event);
         const id = event.pathParameters!.id!;
 
-        await service.delete(userId, id);
-
+        logger.info("Habit delete", { userId, habitId: id });
+        await getHabitService().delete(userId, id);
         return success({ message: "Habit deleted successfully" });
     });
 

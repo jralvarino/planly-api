@@ -1,193 +1,66 @@
-// Habit Schema Validation
+import { z } from "zod";
 
-export const createHabitSchema = {
-    type: "object",
-    properties: {
-        body: {
-            type: "object",
-            required: ["title", "categoryId"],
-            properties: {
-                title: {
-                    type: "string",
-                    minLength: 1,
-                },
-                description: {
-                    type: "string",
-                },
-                color: {
-                    type: "string",
-                },
-                emoji: {
-                    type: "string",
-                },
-                unit: {
-                    type: "string",
-                    enum: ["count", "pg", "km", "ml"],
-                },
-                value: {
-                    type: "string",
-                },
-                period_type: {
-                    type: "string",
-                    enum: ["every_day", "specific_days_week", "specific_days_month"],
-                },
-                period_value: {
-                    type: "string",
-                },
-                categoryId: {
-                    type: "string",
-                    minLength: 1,
-                },
-                period: {
-                    type: "string",
-                    enum: ["Anytime", "Morning", "Afternoon", "Evening"],
-                },
-                reminder_time: {
-                    type: "string",
-                },
-                start_date: {
-                    type: "string",
-                },
-                end_date: {
-                    type: "string",
-                },
-                active: {
-                    type: "boolean",
-                },
-            },
-            additionalProperties: false,
-        },
-    },
-    required: ["body"],
-};
+const unitEnum = z.enum(["count", "pg", "km", "ml"]);
+const periodTypeEnum = z.enum(["every_day", "specific_days_week", "specific_days_month"]);
+const periodEnum = z.enum(["Anytime", "Morning", "Afternoon", "Evening"]);
 
-export const updateHabitSchema = {
-    type: "object",
-    properties: {
-        body: {
-            type: "object",
-            properties: {
-                title: {
-                    type: "string",
-                    minLength: 1,
-                },
-                description: {
-                    type: "string",
-                },
-                color: {
-                    type: "string",
-                },
-                emoji: {
-                    type: "string",
-                },
-                unit: {
-                    type: "string",
-                    enum: ["count", "pg", "km", "ml"],
-                },
-                value: {
-                    type: "string",
-                },
-                period_type: {
-                    type: "string",
-                    enum: ["every_day", "specific_days_week", "specific_days_month"],
-                },
-                period_value: {
-                    type: "string",
-                },
-                categoryId: {
-                    type: "string",
-                    minLength: 1,
-                },
-                period: {
-                    type: "string",
-                    enum: ["Anytime", "Morning", "Afternoon", "Evening"],
-                },
-                reminder_time: {
-                    type: "string",
-                },
-                start_date: {
-                    type: "string",
-                },
-                end_date: {
-                    type: "string",
-                },
-                active: {
-                    type: "boolean",
-                },
-            },
-            additionalProperties: false,
-        },
-        pathParameters: {
-            type: "object",
-            required: ["id"],
-            properties: {
-                id: {
-                    type: "string",
-                    minLength: 1,
-                },
-            },
-        },
-    },
-    required: ["body", "pathParameters"],
-};
+export const createHabitSchema = z.object({
+    body: z.object({
+        title: z.string().min(1),
+        categoryId: z.string().min(1),
+        description: z.string().optional(),
+        color: z.string().optional(),
+        emoji: z.string().optional(),
+        unit: unitEnum.optional(),
+        value: z.string().optional(),
+        period_type: periodTypeEnum.optional(),
+        period_value: z.string().optional(),
+        period: periodEnum.optional(),
+        reminder_time: z.string().optional(),
+        start_date: z.string().optional(),
+        end_date: z.string().optional(),
+        active: z.boolean().optional(),
+    }),
+});
 
-export const getHabitsSchema = {
-    type: "object",
-    properties: {
-        pathParameters: {
-            type: "object",
-            properties: {},
-        },
-    },
-};
+export type CreateHabitInput = z.infer<typeof createHabitSchema>;
 
-export const getHabitByIdSchema = {
-    type: "object",
-    properties: {
-        pathParameters: {
-            type: "object",
-            required: ["id"],
-            properties: {
-                id: {
-                    type: "string",
-                    minLength: 1,
-                },
-            },
-        },
-    },
-    required: ["pathParameters"],
-};
+export const updateHabitSchema = z.object({
+    body: z.object({
+        title: z.string().min(1).optional(),
+        description: z.string().optional(),
+        color: z.string().optional(),
+        emoji: z.string().optional(),
+        unit: unitEnum.optional(),
+        value: z.string().optional(),
+        period_type: periodTypeEnum.optional(),
+        period_value: z.string().optional(),
+        categoryId: z.string().min(1).optional(),
+        period: periodEnum.optional(),
+        reminder_time: z.string().optional(),
+        start_date: z.string().optional(),
+        end_date: z.string().optional(),
+        active: z.boolean().optional(),
+    }),
+    pathParameters: z.object({
+        id: z.string().min(1),
+    }),
+});
 
-export const getHabitsByCategorySchema = {
-    type: "object",
-    properties: {
-        pathParameters: {
-            type: "object",
-            required: ["categoryId"],
-            properties: {
-                categoryId: {
-                    type: "string",
-                    minLength: 1,
-                },
-            },
-        },
-    },
-    required: ["pathParameters"],
-};
+export type UpdateHabitInput = z.infer<typeof updateHabitSchema>;
 
-export const deleteHabitSchema = {
-    type: "object",
-    properties: {
-        pathParameters: {
-            type: "object",
-            required: ["id"],
-            properties: {
-                id: {
-                    type: "string",
-                    minLength: 1,
-                },
-            },
-        },
-    },
-    required: ["pathParameters"],
-};
+export const getHabitByIdSchema = z.object({
+    pathParameters: z.object({
+        id: z.string().min(1),
+    }),
+});
+
+export type GetHabitByIdInput = z.infer<typeof getHabitByIdSchema>;
+
+export const deleteHabitSchema = z.object({
+    pathParameters: z.object({
+        id: z.string().min(1),
+    }),
+});
+
+export type DeleteHabitInput = z.infer<typeof deleteHabitSchema>;

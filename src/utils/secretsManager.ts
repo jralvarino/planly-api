@@ -42,7 +42,7 @@ export async function getJwtSecret(): Promise<string> {
 
         const client = new SecretsManagerClient(clientConfig);
 
-        // Buscar o secret
+        // Fetch the secret
         const command = new GetSecretValueCommand({
             SecretId: SECRET_NAME,
         });

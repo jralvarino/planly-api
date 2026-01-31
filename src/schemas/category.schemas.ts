@@ -1,92 +1,36 @@
-//Category Schema Validation
+import { z } from "zod";
 
-export const createCategorySchema = {
-    type: "object",
-    properties: {
-        body: {
-            type: "object",
-            required: ["name"],
-            properties: {
-                name: {
-                    type: "string",
-                    minLength: 1,
-                },
-            },
-            additionalProperties: false,
-        },
-    },
-    required: ["body"],
-};
+export const createCategorySchema = z.object({
+    body: z.object({
+        name: z.string().min(1),
+    }),
+});
 
-export const updateCategorySchema = {
-    type: "object",
-    properties: {
-        body: {
-            type: "object",
-            required: ["name"],
-            properties: {
-                name: {
-                    type: "string",
-                    minLength: 1,
-                },
-            },
-            additionalProperties: false,
-        },
-        pathParameters: {
-            type: "object",
-            required: ["name"],
-            properties: {
-                name: {
-                    type: "string",
-                    minLength: 1,
-                },
-            },
-        },
-    },
-    required: ["body", "pathParameters"],
-};
+export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
 
-export const getCategoriesSchema = {
-    type: "object",
-    properties: {
-        pathParameters: {
-            type: "object",
-            properties: {},
-        },
-    },
-};
+export const updateCategorySchema = z.object({
+    body: z.object({
+        name: z.string().min(1),
+    }),
+    pathParameters: z.object({
+        id: z.string().min(1),
+    }),
+});
 
-export const getCategoryByNameSchema = {
-    type: "object",
-    properties: {
-        pathParameters: {
-            type: "object",
-            required: ["name"],
-            properties: {
-                name: {
-                    type: "string",
-                    minLength: 1,
-                },
-            },
-        },
-    },
-    required: ["pathParameters"],
-};
+export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>;
 
-export const deleteCategorySchema = {
-    type: "object",
-    properties: {
-        pathParameters: {
-            type: "object",
-            required: ["name"],
-            properties: {
-                name: {
-                    type: "string",
-                    minLength: 1,
-                },
-            },
-        },
-    },
-    required: ["pathParameters"],
-};
+export const getCategoryByIdSchema = z.object({
+    pathParameters: z.object({
+        id: z.string().min(1),
+    }),
+});
 
+export type GetCategoryByIdInput = z.infer<typeof getCategoryByIdSchema>;
+
+export const deleteCategorySchema = z.object({
+    pathParameters: z.object({
+        id: z.string().min(1),
+    }),
+});
+
+export type DeleteCategoryInput = z.infer<typeof deleteCategorySchema>;

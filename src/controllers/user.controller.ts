@@ -2,16 +2,19 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { Route } from "@middy/http-router";
 import middy from "@middy/core";
 import { UserService } from "../services/UserService.js";
-import { authMiddleware } from "../middlewares/auth.middleware.js";
+import { authMiddleware, getUserId } from "../middlewares/auth.middleware.js";
 import { success } from "../utils/response.util.js";
+import { container } from "../container.js";
+import { logger } from "../utils/logger.js";
 
-const service = new UserService();
+const getUserService = () => container.resolve(UserService);
 
 const getProfile = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(authMiddleware())
     .handler(async (event) => {
-        const userId = (event.requestContext?.authorizer as any)?.userId;
-        const profile = await service.getProfile(userId);
+        const userId = getUserId(event);
+        logger.info("User getProfile", { userId });
+        const profile = await getUserService().getProfile(userId);
         return success(profile);
     });
 

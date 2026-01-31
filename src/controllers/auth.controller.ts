@@ -1,24 +1,24 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
-import { transpileSchema } from "@middy/validator/transpile";
 import { Route } from "@middy/http-router";
 import middy from "@middy/core";
-import validator from "@middy/validator";
 import { AuthService } from "../services/AuthService.js";
 import { success } from "../utils/response.util.js";
 import { loginSchema } from "../schemas/auth.schemas.js";
+import { zodValidator } from "../middlewares/zod-validator.middleware.js";
+import { container } from "../container.js";
+import { logger } from "../utils/logger.js";
 
-const authService = new AuthService();
+const getAuthService = () => container.resolve(AuthService);
 
 const login = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
-    .use(validator({ eventSchema: transpileSchema(loginSchema) }))
+    .use(zodValidator(loginSchema))
     .handler(async (event) => {
-        const body = (event.body as any) || {};
+        const { body } = (event as APIGatewayProxyEvent & { validated: { body: { user: string; password: string } } }).validated;
 
-        const token = await authService.login(body.user, body.password);
+        logger.info("Auth login request", { user: body.user });
+        const token = await getAuthService().login(body.user, body.password);
 
-        return success({
-            token,
-        });
+        return success({ token });
     });
 
 export const authRoutes: Route<APIGatewayProxyEvent, APIGatewayProxyResult>[] = [

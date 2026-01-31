@@ -1,15 +1,19 @@
+import { injectable } from "tsyringe";
 import { CategoryRepository } from "../repositories/CategoryRepository.js";
 import { Category } from "../models/Category.js";
 import { ConflictError, NotFoundError } from "../errors/PlanlyError.js";
 import { v4 as uuidv4 } from "uuid";
+import { logger } from "../utils/logger.js";
 
+@injectable()
 export class CategoryService {
-    private repository = new CategoryRepository();
+    constructor(private readonly repository: CategoryRepository) {}
 
     async create(userId: string, name: string): Promise<Category> {
         const existing = await this.repository.findByName(userId, name.toLowerCase());
 
         if (existing) {
+            logger.warn("Category create: name already exists", { userId, name: name.toLowerCase() });
             throw new ConflictError("A category with this name already exists");
         }
 
@@ -38,9 +42,11 @@ export class CategoryService {
         const category = await this.repository.findById(id);
 
         if (!category) {
+            logger.warn("Category getById: not found", { userId, categoryId: id });
             throw new NotFoundError(`Category ${id} could not be found`);
         }
         if (category.userId != userId) {
+            logger.warn("Category getById: user mismatch", { userId, categoryId: id });
             throw new NotFoundError(`Category ${id} could not be found for user ${userId}`);
         }
 
@@ -61,9 +67,11 @@ export class CategoryService {
         const oldCategory = await this.repository.findById(id);
 
         if (!oldCategory) {
+            logger.warn("Category update: not found", { userId, categoryId: id });
             throw new NotFoundError(`Category ${id} could not be found`);
         }
         if (oldCategory.userId != userId) {
+            logger.warn("Category update: user mismatch", { userId, categoryId: id });
             throw new NotFoundError(`Category ${id} could not be found for user ${userId}`);
         }
 
@@ -71,8 +79,8 @@ export class CategoryService {
 
         if (oldCategory.name.toLowerCase() !== lowerCaseNewName) {
             const existingWithNewName = await this.repository.findByName(userId, lowerCaseNewName);
-            // Se encontrou e não é a mesma categoria (mesmo id), então é duplicata
             if (existingWithNewName && existingWithNewName.id !== oldCategory.id) {
+                logger.warn("Category update: name already exists", { userId, categoryId: id, newName: lowerCaseNewName });
                 throw new ConflictError("A category with this name already exists");
             }
             const updatedCategory = { ...oldCategory, name: lowerCaseNewName };
@@ -89,13 +97,16 @@ export class CategoryService {
         const category = await this.repository.findById(id);
 
         if (!category) {
+            logger.warn("Category delete: not found", { userId, categoryId: id });
             throw new NotFoundError("Category not found");
         }
         if (category.userId != userId) {
+            logger.warn("Category delete: user mismatch", { userId, categoryId: id });
             throw new NotFoundError(`Category ${id} could not be found for user ${userId}`);
         }
 
         await this.repository.delete(category.id);
+        logger.debug("Category deleted", { userId, categoryId: id });
     }
 }
 

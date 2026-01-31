@@ -39,7 +39,7 @@ export class BadRequestError extends PlanlyError {
 }
 
 export class UnauthorizedError extends PlanlyError {
-    constructor(message: string = "Não autorizado", details?: any) {
+    constructor(message: string = "Unauthorized", details?: any) {
         super(message, 401, "UNAUTHORIZED", details);
         this.name = "UnauthorizedError";
     }
@@ -53,28 +53,28 @@ export class ForbiddenError extends PlanlyError {
 }
 
 export class NotFoundError extends PlanlyError {
-    constructor(message: string = "Recurso não encontrado", details?: any) {
+    constructor(message: string = "Resource not found", details?: any) {
         super(message, 404, "NOT_FOUND", details);
         this.name = "NotFoundError";
     }
 }
 
 export class ConflictError extends PlanlyError {
-    constructor(message: string = "Conflito", details?: any) {
+    constructor(message: string = "Conflict", details?: any) {
         super(message, 409, "CONFLICT", details);
         this.name = "ConflictError";
     }
 }
 
 export class ValidationError extends PlanlyError {
-    constructor(message: string = "Erro de validação", details?: any) {
+    constructor(message: string = "Validation error", details?: any) {
         super(message, 400, "VALIDATION_ERROR", details);
         this.name = "ValidationError";
     }
 }
 
 export class InternalServerError extends PlanlyError {
-    constructor(message: string = "Erro interno do servidor", details?: any) {
+    constructor(message: string = "Internal server error", details?: any) {
         super(message, 500, "INTERNAL_SERVER_ERROR", details);
         this.name = "InternalServerError";
     }

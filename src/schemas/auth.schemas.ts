@@ -1,21 +1,10 @@
-export const loginSchema = {
-    type: "object",
-    properties: {
-        body: {
-            type: "object",
-            required: ["user", "password"],
-            properties: {
-                user: {
-                    type: "string",
-                    minLength: 1,
-                },
-                password: {
-                    type: "string",
-                    minLength: 1,
-                },
-            },
-            additionalProperties: false,
-        },
-    },
-    required: ["body"],
-};
+import { z } from "zod";
+
+export const loginSchema = z.object({
+    body: z.object({
+        user: z.string().min(1),
+        password: z.string().min(1),
+    }),
+});
+
+export type LoginInput = z.infer<typeof loginSchema>;

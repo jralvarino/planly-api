@@ -1,82 +1,78 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { Route } from "@middy/http-router";
 import middy from "@middy/core";
-import validator from "@middy/validator";
-import { transpileSchema } from "@middy/validator/transpile";
 import {
     createCategorySchema,
     updateCategorySchema,
-    getCategoriesSchema,
-    getCategoryByNameSchema,
+    getCategoryByIdSchema,
     deleteCategorySchema,
 } from "../schemas/category.schemas.js";
 import { CategoryService } from "../services/CategoryService.js";
-import { authMiddleware } from "../middlewares/auth.middleware.js";
+import { authMiddleware, getUserId } from "../middlewares/auth.middleware.js";
+import { zodValidator } from "../middlewares/zod-validator.middleware.js";
 import { created, success } from "../utils/response.util.js";
+import { container } from "../container.js";
+import { logger } from "../utils/logger.js";
 
-const service = new CategoryService();
+const getCategoryService = () => container.resolve(CategoryService);
 
 const createCategory = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(authMiddleware())
-    .use(validator({ eventSchema: transpileSchema(createCategorySchema) }))
+    .use(zodValidator(createCategorySchema))
     .handler(async (event) => {
-        const userId = (event.requestContext?.authorizer as any)?.userId;
+        const userId = getUserId(event);
+        const { body } = (event as APIGatewayProxyEvent & { validated: { body: { name: string } } }).validated;
 
-        const body = (event.body as any) || {};
-
-        const category = await service.create(userId, body.name);
-
+        logger.info("Category create", { userId, name: body.name });
+        const category = await getCategoryService().create(userId, body.name);
+        logger.info("Category created", { userId, categoryId: category.id });
         return created({ category });
     });
 
 const updateCategory = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(authMiddleware())
-    .use(validator({ eventSchema: transpileSchema(updateCategorySchema) }))
+    .use(zodValidator(updateCategorySchema))
     .handler(async (event) => {
-        const userId = (event.requestContext?.authorizer as any)?.userId;
+        const userId = getUserId(event);
+        const { body, pathParameters } = (event as APIGatewayProxyEvent & { validated: { body: { name: string }; pathParameters: { id: string } } }).validated;
 
-        const id = event.pathParameters!.id!;
-        const body = (event.body as any) || {};
-
-        const category = await service.update(userId, id, body.name);
-
+        logger.info("Category update", { userId, categoryId: pathParameters.id });
+        const category = await getCategoryService().update(userId, pathParameters.id, body.name);
         return success({ category });
     });
 
 const getAllCategories = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(authMiddleware())
-    .use(validator({ eventSchema: transpileSchema(getCategoriesSchema) }))
     .handler(async (event) => {
-        const userId = (event.requestContext?.authorizer as any)?.userId;
+        const userId = getUserId(event);
 
-        const categories = await service.getAllCategories(userId);
-
+        logger.info("Category list", { userId });
+        const categories = await getCategoryService().getAllCategories(userId);
+        logger.info("Category list result", { userId, count: categories.length });
         return success(Object.values(categories));
     });
 
 const getCategoryById = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(authMiddleware())
-    .use(validator({ eventSchema: transpileSchema(getCategoryByNameSchema) }))
+    .use(zodValidator(getCategoryByIdSchema))
     .handler(async (event) => {
-        const userId = (event.requestContext?.authorizer as any)?.userId;
+        const userId = getUserId(event);
+        const { pathParameters } = (event as APIGatewayProxyEvent & { validated: { pathParameters: { id: string } } }).validated;
 
-        const id = event.pathParameters!.id!;
-
-        const category = await service.getCategoryById(userId, id);
-
+        logger.info("Category getById", { userId, categoryId: pathParameters.id });
+        const category = await getCategoryService().getCategoryById(userId, pathParameters.id);
         return success(category);
     });
 
 const deleteCategory = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(authMiddleware())
-    .use(validator({ eventSchema: transpileSchema(deleteCategorySchema) }))
+    .use(zodValidator(deleteCategorySchema))
     .handler(async (event) => {
-        const userId = (event.requestContext?.authorizer as any)?.userId;
+        const userId = getUserId(event);
+        const { pathParameters } = (event as APIGatewayProxyEvent & { validated: { pathParameters: { id: string } } }).validated;
 
-        const id = event.pathParameters!.id!;
-
-        await service.delete(userId, id);
-
+        logger.info("Category delete", { userId, categoryId: pathParameters.id });
+        await getCategoryService().delete(userId, pathParameters.id);
         return success({ message: "Category deleted successfully" });
     });
 

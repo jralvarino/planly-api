@@ -1,3 +1,4 @@
+import "reflect-metadata";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { StatsService } from "../../src/services/StatsService.js";
 import { TODO_STATUS } from "../../src/constants/todo.constants.js";
@@ -63,10 +64,51 @@ vi.mock("../../src/utils/util.js", () => ({
     }),
 }));
 
+const { mockContainerResolve } = vi.hoisted(() => ({
+    mockContainerResolve: vi.fn(),
+}));
+
+vi.mock("../../src/container.js", () => ({
+    container: {
+        resolve: mockContainerResolve,
+    },
+}));
+
+function createStatsService(): StatsService {
+    const mockStatsRepo = {
+        get: mockGet,
+        updateStreakFields: mockUpdateStreakFields,
+        create: vi.fn(),
+    };
+    const mockTodoRepo = {
+        findByUserDateAndHabit: mockFindByUserDateAndHabit,
+        findAllByDateRange: mockFindAllByDateRange,
+    };
+    const mockHabitService = {
+        getHabitById: mockGetHabitById,
+        getScheduledDates: mockGetScheduledDates,
+        getAllHabits: mockGetAllHabits,
+    };
+    return new StatsService(
+        mockStatsRepo as any,
+        mockTodoRepo as any,
+        mockHabitService as any
+    );
+}
+
 describe("StatsService", () => {
+    beforeEach(() => {
+        mockContainerResolve.mockReturnValue({
+            getTodoListByDate: mockGetTodoListByDate,
+        });
+    });
+
     describe("updateStatsOnTodoStatusChange", () => {
         beforeEach(() => {
             vi.clearAllMocks();
+            mockContainerResolve.mockReturnValue({
+                getTodoListByDate: mockGetTodoListByDate,
+            });
             mockGetTodoListByDate.mockResolvedValue([]);
             const defaultHabit = {
                 id: "habit-1",
@@ -81,7 +123,7 @@ describe("StatsService", () => {
         });
 
         it("returns early when newStatus equals previousStatus (DONE)", async () => {
-            const service = new StatsService();
+            const service = createStatsService();
             mockTodayISO.mockReturnValue("2025-01-15");
 
             await service.updateStatsOnTodoStatusChange({
@@ -98,7 +140,7 @@ describe("StatsService", () => {
         });
 
         it("returns early when newStatus equals previousStatus (PENDING)", async () => {
-            const service = new StatsService();
+            const service = createStatsService();
             mockTodayISO.mockReturnValue("2025-01-15");
 
             await service.updateStatsOnTodoStatusChange({
@@ -115,7 +157,7 @@ describe("StatsService", () => {
         });
 
         it("calls updateHabitStatsIncremental when date is today and newStatus is DONE (new streak)", async () => {
-            const service = new StatsService();
+            const service = createStatsService();
             const today = "2025-01-15";
             mockTodayISO.mockReturnValue(today);
             mockGet.mockResolvedValue({
@@ -152,7 +194,7 @@ describe("StatsService", () => {
                 totalCompletions: 1,
             });
 
-            const service = new StatsService();
+            const service = createStatsService();
             await service.updateStatsOnTodoStatusChange({
                 userId: "user-1",
                 habitId: "habit-1",
@@ -183,7 +225,7 @@ describe("StatsService", () => {
                 { userId: "user-1", habitId: "habit-1", date: yesterday, status: TODO_STATUS.DONE },
             ] as any);
 
-            const service = new StatsService();
+            const service = createStatsService();
             await service.updateStatsOnTodoStatusChange({
                 userId: "user-1",
                 habitId: "habit-1",
@@ -212,7 +254,7 @@ describe("StatsService", () => {
             });
             mockFindAllByDateRange.mockResolvedValue([]);
 
-            const service = new StatsService();
+            const service = createStatsService();
             await service.updateStatsOnTodoStatusChange({
                 userId: "user-1",
                 habitId: "habit-1",
@@ -239,7 +281,7 @@ describe("StatsService", () => {
                 totalCompletions: 4,
             });
 
-            const service = new StatsService();
+            const service = createStatsService();
             await service.updateStatsOnTodoStatusChange({
                 userId: "user-1",
                 habitId: "habit-1",
@@ -266,7 +308,7 @@ describe("StatsService", () => {
                 totalCompletions: 1,
             });
 
-            const service = new StatsService();
+            const service = createStatsService();
             await service.updateStatsOnTodoStatusChange({
                 userId: "user-1",
                 habitId: "habit-1",
@@ -297,7 +339,7 @@ describe("StatsService", () => {
                 { habitId: "habit-1", date: "2025-01-11", status: TODO_STATUS.DONE },
             ]);
 
-            const service = new StatsService();
+            const service = createStatsService();
             await service.updateStatsOnTodoStatusChange({
                 userId: "user-1",
                 habitId: "habit-1",
@@ -344,7 +386,7 @@ describe("StatsService", () => {
                 { habitId: "habit-1", date: "2025-01-29", status: TODO_STATUS.PENDING },
             ]);
 
-            const service = new StatsService();
+            const service = createStatsService();
             await service.updateStatsOnTodoStatusChange({
                 userId: "user-1",
                 habitId: "habit-1",
@@ -393,7 +435,7 @@ describe("StatsService", () => {
                 { habitId: "habit-1", date: "2025-01-29", status: TODO_STATUS.PENDING },
             ]);
 
-            const service = new StatsService();
+            const service = createStatsService();
             await service.updateStatsOnTodoStatusChange({
                 userId: "user-1",
                 habitId: "habit-1",
@@ -429,7 +471,7 @@ describe("StatsService", () => {
                 { habitId: "habit-academia", date: "2025-01-29", status: TODO_STATUS.DONE },
             ]);
 
-            const service = new StatsService();
+            const service = createStatsService();
             await service.updateStatsOnTodoStatusChange({
                 userId: "user-1",
                 habitId: "habit-academia",
@@ -470,7 +512,7 @@ describe("StatsService", () => {
                 { habitId: "habit-1", date: friday, status: TODO_STATUS.PENDING },
             ]);
 
-            const service = new StatsService();
+            const service = createStatsService();
             await service.updateStatsOnTodoStatusChange({
                 userId: "user-1",
                 habitId: "habit-1",
@@ -511,7 +553,7 @@ describe("StatsService", () => {
                 { habitId: "habit-1", date: friday, status: TODO_STATUS.DONE },
             ]);
 
-            const service = new StatsService();
+            const service = createStatsService();
             await service.updateStatsOnTodoStatusChange({
                 userId: "user-1",
                 habitId: "habit-1",
@@ -562,7 +604,7 @@ describe("StatsService", () => {
                     { habitId, date: "2025-01-30", status: TODO_STATUS.DONE },
                 ]);
 
-                const service = new StatsService();
+                const service = createStatsService();
                 await service.updateStatsOnTodoStatusChange({
                     userId: "user-1",
                     habitId,
@@ -591,7 +633,7 @@ describe("StatsService", () => {
                     { habitId, date: "2025-01-30", status: TODO_STATUS.DONE },
                 ]);
 
-                const service = new StatsService();
+                const service = createStatsService();
                 await service.updateStatsOnTodoStatusChange({
                     userId: "user-1",
                     habitId,
@@ -624,7 +666,7 @@ describe("StatsService", () => {
                     { habitId, date: "2025-03-20", status: TODO_STATUS.PENDING },
                 ]);
 
-                const service = new StatsService();
+                const service = createStatsService();
                 await service.updateStatsOnTodoStatusChange({
                     userId: "user-1",
                     habitId,
@@ -652,7 +694,7 @@ describe("StatsService", () => {
                     scheduled.map((date) => ({ habitId, date, status: TODO_STATUS.DONE }))
                 );
 
-                const service = new StatsService();
+                const service = createStatsService();
                 await service.updateStatsOnTodoStatusChange({
                     userId: "user-1",
                     habitId,
@@ -682,7 +724,7 @@ describe("StatsService", () => {
                     { habitId, date: "2025-04-01", status: TODO_STATUS.PENDING },
                 ]);
 
-                const service = new StatsService();
+                const service = createStatsService();
                 await service.updateStatsOnTodoStatusChange({
                     userId: "user-1",
                     habitId,
@@ -710,7 +752,7 @@ describe("StatsService", () => {
                     { habitId, date: "2025-03-30", status: TODO_STATUS.DONE },
                 ]);
 
-                const service = new StatsService();
+                const service = createStatsService();
                 await service.updateStatsOnTodoStatusChange({
                     userId: "user-1",
                     habitId,
@@ -739,7 +781,7 @@ describe("StatsService", () => {
                     { habitId, date: "2025-05-31", status: TODO_STATUS.PENDING },
                 ]);
 
-                const service = new StatsService();
+                const service = createStatsService();
                 await service.updateStatsOnTodoStatusChange({
                     userId: "user-1",
                     habitId,
@@ -767,7 +809,7 @@ describe("StatsService", () => {
                     { habitId, date: "2025-01-30", status: TODO_STATUS.DONE },
                 ]);
 
-                const service = new StatsService();
+                const service = createStatsService();
                 await service.updateStatsOnTodoStatusChange({
                     userId: "user-1",
                     habitId,
@@ -796,7 +838,7 @@ describe("StatsService", () => {
                     { habitId, date: "2025-01-30", status: TODO_STATUS.DONE },
                 ]);
 
-                const service = new StatsService();
+                const service = createStatsService();
                 await service.updateStatsOnTodoStatusChange({
                     userId: "user-1",
                     habitId,
@@ -853,7 +895,7 @@ describe("StatsService", () => {
                 { id: "habit-2", categoryId: "cat-1", status: TODO_STATUS.DONE },
             ]);
 
-            const service = new StatsService();
+            const service = createStatsService();
             await service.updateStatsOnTodoStatusChange({
                 userId: "user-1",
                 habitId: "habit-1",
@@ -892,7 +934,7 @@ describe("StatsService", () => {
                 { id: "habit-2", categoryId: "cat-1", status: TODO_STATUS.DONE },
             ]);
 
-            const service = new StatsService();
+            const service = createStatsService();
             await service.updateStatsOnTodoStatusChange({
                 userId: "user-1",
                 habitId: "habit-1",
@@ -942,7 +984,7 @@ describe("StatsService", () => {
                 return Promise.resolve([]);
             });
 
-            const service = new StatsService();
+            const service = createStatsService();
             await service.updateStatsOnTodoStatusChange({
                 userId: "user-1",
                 habitId: "habit-1",
@@ -992,7 +1034,7 @@ describe("StatsService", () => {
                 return Promise.resolve([]);
             });
 
-            const service = new StatsService();
+            const service = createStatsService();
             await service.updateStatsOnTodoStatusChange({
                 userId: "user-1",
                 habitId: "habit-1",
@@ -1031,7 +1073,7 @@ describe("StatsService", () => {
                 { id: "habit-2", categoryId: "cat-1", status: TODO_STATUS.PENDING },
             ]);
 
-            const service = new StatsService();
+            const service = createStatsService();
             await service.updateStatsOnTodoStatusChange({
                 userId: "user-1",
                 habitId: "habit-1",

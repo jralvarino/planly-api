@@ -1,3 +1,4 @@
+import { injectable } from "tsyringe";
 import { StatsRepository } from "../repositories/StatsRepository.js";
 import { Stats, StatsScope } from "../models/Stats.js";
 import { logger } from "../utils/logger.js";
@@ -10,6 +11,7 @@ import { generatePK, generateSK } from "./stats/StatsKeyGenerator.js";
 import { HabitService } from "./HabitService.js";
 import { TodoService } from "./TodoService.js";
 import { TodoRepository } from "../repositories/TodoRepository.js";
+import { container } from "../container.js";
 
 export interface UpdateStatsOnStatusChangeParams {
     userId: string;
@@ -27,15 +29,19 @@ export interface GetHabitStatsParams {
     categoryId?: string;
 }
 
+@injectable()
 export class StatsService {
-    private repository = new StatsRepository();
-    private todoRepository = new TodoRepository();
-    private habitService = new HabitService();
     private _todoService: TodoService | null = null;
+
+    constructor(
+        private readonly repository: StatsRepository,
+        private readonly todoRepository: TodoRepository,
+        private readonly habitService: HabitService
+    ) {}
 
     private get todoService(): TodoService {
         if (!this._todoService) {
-            this._todoService = new TodoService();
+            this._todoService = container.resolve(TodoService);
         }
         return this._todoService;
     }
@@ -218,9 +224,9 @@ export class StatsService {
     async getHabitStats(params: GetHabitStatsParams): Promise<Stats> {
         const pk = generatePK(params.userId);
         const sk = generateSK(params.scope, params.habitId, params.categoryId || "");
-        const habitStats = await this.repository.get(pk, sk);
+        const stats = await this.repository.get(pk, sk);
 
-        if (!habitStats) {
+        if (!stats) {
             logger.warn("Stats not found for getHabitStats", {
                 userId: params.userId,
                 scope: params.scope,
@@ -232,7 +238,7 @@ export class StatsService {
             throw new Error(`Stats not found: ${params.scope} ${params.habitId}`);
         }
 
-        return habitStats;
+        return stats;
     }
 
     private throwIfStatsUpdatesFailed(

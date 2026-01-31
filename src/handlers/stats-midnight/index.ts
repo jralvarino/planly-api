@@ -1,3 +1,4 @@
+import "../../container.js";
 import type { ScheduledHandler } from "aws-lambda";
 import { addDays, todayISO } from "../../utils/util.js";
 import { UserRepository } from "../../repositories/UserRepository.js";
@@ -6,11 +7,12 @@ import { TodoService } from "../../services/TodoService.js";
 import { StatsService } from "../../services/StatsService.js";
 import { logger } from "../../utils/logger.js";
 import { TODO_STATUS } from "../../constants/todo.constants.js";
+import { container } from "../../container.js";
 
-const userRepository = new UserRepository();
-const todoRepository = new TodoRepository();
-const todoService = new TodoService();
-const statsService = new StatsService();
+const userRepository = container.resolve(UserRepository);
+const todoRepository = container.resolve(TodoRepository);
+const todoService = container.resolve(TodoService);
+const statsService = container.resolve(StatsService);
 
 /**
  * Lambda triggered daily at 00:01 (EventBridge Schedule).

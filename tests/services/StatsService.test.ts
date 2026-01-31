@@ -8,6 +8,7 @@ const {
     mockTodayISO,
     mockGetHabitById,
     mockGetScheduledDates,
+    mockGetAllHabits,
     mockFindAllByDateRange,
     mockFindByUserDateAndHabit,
     mockGetTodoListByDate,
@@ -17,6 +18,7 @@ const {
     mockTodayISO: vi.fn(),
     mockGetHabitById: vi.fn(),
     mockGetScheduledDates: vi.fn(),
+    mockGetAllHabits: vi.fn(),
     mockFindAllByDateRange: vi.fn(),
     mockFindByUserDateAndHabit: vi.fn(),
     mockGetTodoListByDate: vi.fn(),
@@ -41,6 +43,7 @@ vi.mock("../../src/services/HabitService.js", () => ({
     HabitService: vi.fn().mockImplementation(() => ({
         getHabitById: mockGetHabitById,
         getScheduledDates: mockGetScheduledDates,
+        getAllHabits: mockGetAllHabits,
     })),
 }));
 
@@ -65,13 +68,15 @@ describe("StatsService", () => {
         beforeEach(() => {
             vi.clearAllMocks();
             mockGetTodoListByDate.mockResolvedValue([]);
-            mockGetHabitById.mockResolvedValue({
+            const defaultHabit = {
                 id: "habit-1",
                 userId: "user-1",
                 categoryId: "cat-1",
                 start_date: "2025-01-01",
                 end_date: undefined,
-            });
+            };
+            mockGetHabitById.mockResolvedValue(defaultHabit);
+            mockGetAllHabits.mockResolvedValue([defaultHabit]);
             mockGetScheduledDates.mockResolvedValue(["2025-01-14", "2025-01-15"]);
         });
 
@@ -407,7 +412,7 @@ describe("StatsService", () => {
         it("Academia scenario: habit Mon/Wed/Fri, 25-30 Jan, 27 Pending 29 Done → change 27 to Done → currentStreak 2, longestStreak 2", async () => {
             // Habit: Academia, Segunda/Quarta/Sexta. Jan 2025: 27=Mon, 29=Wed (scheduled in 25-30). 26 Pending, 28 Done, 30 Done (user labels); for habit only 27,29 matter. 27 Pending, 29 Done → change 27 to Done → 27+29 both done.
             mockTodayISO.mockReturnValue("2025-01-30");
-            mockGetHabitById.mockResolvedValue({
+            const academiaHabit = {
                 id: "habit-academia",
                 userId: "user-1",
                 categoryId: "cat-1",
@@ -415,7 +420,9 @@ describe("StatsService", () => {
                 end_date: "2025-01-30",
                 period_type: "specific_days_week",
                 period_value: "MON,WED,FRI",
-            });
+            };
+            mockGetHabitById.mockResolvedValue(academiaHabit);
+            mockGetAllHabits.mockResolvedValue([academiaHabit]);
             mockGetScheduledDates.mockResolvedValue(["2025-01-27", "2025-01-29"]);
             mockFindAllByDateRange.mockResolvedValue([
                 { habitId: "habit-academia", date: "2025-01-27", status: TODO_STATUS.DONE },
@@ -433,7 +440,11 @@ describe("StatsService", () => {
             });
 
             expect(mockUpdateStreakFields).toHaveBeenCalled();
-            const [, , fields] = mockUpdateStreakFields.mock.calls[0];
+            const habitCall = mockUpdateStreakFields.mock.calls.find(
+                ([_pk, sk]) => sk === "STATS#HABIT#habit-academia"
+            );
+            expect(habitCall).toBeDefined();
+            const [, , fields] = habitCall!;
             expect(fields.currentStreak).toBe(2);
             expect(fields.longestStreak).toBe(2);
             expect(fields.totalCompletions).toBe(2);
@@ -526,9 +537,8 @@ describe("StatsService", () => {
                 return mockUpdateStreakFields.mock.calls.find(([_pk, sk]) => sk === `STATS#HABIT#${habitId}`);
             }
 
-            it("1,15,30 all done → currentStreak 3, longestStreak 3", async () => {
-                mockTodayISO.mockReturnValue("2025-02-01");
-                mockGetHabitById.mockResolvedValue({
+            function setMonthHabit(overrides: Record<string, unknown> = {}) {
+                const habit = {
                     id: habitId,
                     userId: "user-1",
                     categoryId: "cat-1",
@@ -536,7 +546,15 @@ describe("StatsService", () => {
                     end_date: "2025-01-31",
                     period_type: "specific_days_month",
                     period_value: "1,15,30",
-                });
+                    ...overrides,
+                };
+                mockGetHabitById.mockResolvedValue(habit);
+                mockGetAllHabits.mockResolvedValue([habit]);
+            }
+
+            it("1,15,30 all done → currentStreak 3, longestStreak 3", async () => {
+                mockTodayISO.mockReturnValue("2025-02-01");
+                setMonthHabit();
                 mockGetScheduledDates.mockResolvedValue(["2025-01-01", "2025-01-15", "2025-01-30"]);
                 mockFindAllByDateRange.mockResolvedValue([
                     { habitId, date: "2025-01-01", status: TODO_STATUS.DONE },
@@ -565,15 +583,7 @@ describe("StatsService", () => {
 
             it("1 done, 15 not, 30 done → currentStreak 1, longestStreak 1", async () => {
                 mockTodayISO.mockReturnValue("2025-02-01");
-                mockGetHabitById.mockResolvedValue({
-                    id: habitId,
-                    userId: "user-1",
-                    categoryId: "cat-1",
-                    start_date: "2025-01-01",
-                    end_date: "2025-01-31",
-                    period_type: "specific_days_month",
-                    period_value: "1,15,30",
-                });
+                setMonthHabit();
                 mockGetScheduledDates.mockResolvedValue(["2025-01-01", "2025-01-15", "2025-01-30"]);
                 mockFindAllByDateRange.mockResolvedValue([
                     { habitId, date: "2025-01-01", status: TODO_STATUS.DONE },
@@ -602,15 +612,7 @@ describe("StatsService", () => {
 
             it("5,20 in 3 months, last 20 pending → currentStreak 0 (trailing run), longestStreak 5", async () => {
                 mockTodayISO.mockReturnValue("2025-03-21");
-                mockGetHabitById.mockResolvedValue({
-                    id: habitId,
-                    userId: "user-1",
-                    categoryId: "cat-1",
-                    start_date: "2025-01-01",
-                    end_date: "2025-03-31",
-                    period_type: "specific_days_month",
-                    period_value: "5,20",
-                });
+                setMonthHabit({ end_date: "2025-03-31", period_value: "5,20" });
                 const scheduled = ["2025-01-05", "2025-01-20", "2025-02-05", "2025-02-20", "2025-03-05", "2025-03-20"];
                 mockGetScheduledDates.mockResolvedValue(scheduled);
                 mockFindAllByDateRange.mockResolvedValue([
@@ -643,15 +645,7 @@ describe("StatsService", () => {
 
             it("5,20 all done in 3 months → currentStreak 6, longestStreak 6", async () => {
                 mockTodayISO.mockReturnValue("2025-03-21");
-                mockGetHabitById.mockResolvedValue({
-                    id: habitId,
-                    userId: "user-1",
-                    categoryId: "cat-1",
-                    start_date: "2025-01-01",
-                    end_date: "2025-03-31",
-                    period_type: "specific_days_month",
-                    period_value: "5,20",
-                });
+                setMonthHabit({ end_date: "2025-03-31", period_value: "5,20" });
                 const scheduled = ["2025-01-05", "2025-01-20", "2025-02-05", "2025-02-20", "2025-03-05", "2025-03-20"];
                 mockGetScheduledDates.mockResolvedValue(scheduled);
                 mockFindAllByDateRange.mockResolvedValue(
@@ -679,15 +673,7 @@ describe("StatsService", () => {
 
             it("only day 1, 2 months done → currentStreak 0 (trailing run), longestStreak 2", async () => {
                 mockTodayISO.mockReturnValue("2025-04-02");
-                mockGetHabitById.mockResolvedValue({
-                    id: habitId,
-                    userId: "user-1",
-                    categoryId: "cat-1",
-                    start_date: "2025-01-01",
-                    end_date: "2025-04-30",
-                    period_type: "specific_days_month",
-                    period_value: "1",
-                });
+                setMonthHabit({ end_date: "2025-04-30", period_value: "1" });
                 mockGetScheduledDates.mockResolvedValue(["2025-01-01", "2025-02-01", "2025-03-01", "2025-04-01"]);
                 mockFindAllByDateRange.mockResolvedValue([
                     { habitId, date: "2025-01-01", status: TODO_STATUS.DONE },
@@ -717,15 +703,7 @@ describe("StatsService", () => {
 
             it("only day 30, Jan and Mar done (Feb has no 30) → currentStreak 2", async () => {
                 mockTodayISO.mockReturnValue("2025-04-01");
-                mockGetHabitById.mockResolvedValue({
-                    id: habitId,
-                    userId: "user-1",
-                    categoryId: "cat-1",
-                    start_date: "2025-01-01",
-                    end_date: "2025-03-31",
-                    period_type: "specific_days_month",
-                    period_value: "30",
-                });
+                setMonthHabit({ end_date: "2025-03-31", period_value: "30" });
                 mockGetScheduledDates.mockResolvedValue(["2025-01-30", "2025-03-30"]);
                 mockFindAllByDateRange.mockResolvedValue([
                     { habitId, date: "2025-01-30", status: TODO_STATUS.DONE },
@@ -753,15 +731,7 @@ describe("StatsService", () => {
 
             it("only day 31, Jan and Mar done (Feb/Apr have no 31) → currentStreak 0 (trailing run)", async () => {
                 mockTodayISO.mockReturnValue("2025-06-01");
-                mockGetHabitById.mockResolvedValue({
-                    id: habitId,
-                    userId: "user-1",
-                    categoryId: "cat-1",
-                    start_date: "2025-01-01",
-                    end_date: "2025-05-31",
-                    period_type: "specific_days_month",
-                    period_value: "31",
-                });
+                setMonthHabit({ end_date: "2025-05-31", period_value: "31" });
                 mockGetScheduledDates.mockResolvedValue(["2025-01-31", "2025-03-31", "2025-05-31"]);
                 mockFindAllByDateRange.mockResolvedValue([
                     { habitId, date: "2025-01-31", status: TODO_STATUS.DONE },
@@ -790,15 +760,7 @@ describe("StatsService", () => {
 
             it("start_date 10/01, 15 and 30 done (1st before start) → currentStreak 2", async () => {
                 mockTodayISO.mockReturnValue("2025-02-01");
-                mockGetHabitById.mockResolvedValue({
-                    id: habitId,
-                    userId: "user-1",
-                    categoryId: "cat-1",
-                    start_date: "2025-01-10",
-                    end_date: "2025-01-31",
-                    period_type: "specific_days_month",
-                    period_value: "1,15,30",
-                });
+                setMonthHabit({ start_date: "2025-01-10" });
                 mockGetScheduledDates.mockResolvedValue(["2025-01-15", "2025-01-30"]);
                 mockFindAllByDateRange.mockResolvedValue([
                     { habitId, date: "2025-01-15", status: TODO_STATUS.DONE },
@@ -826,15 +788,7 @@ describe("StatsService", () => {
 
             it("mark 30/01 done with today 01/02 (date !== today) → currentStreak 2", async () => {
                 mockTodayISO.mockReturnValue("2025-02-01");
-                mockGetHabitById.mockResolvedValue({
-                    id: habitId,
-                    userId: "user-1",
-                    categoryId: "cat-1",
-                    start_date: "2025-01-01",
-                    end_date: "2025-01-31",
-                    period_type: "specific_days_month",
-                    period_value: "1,15,30",
-                });
+                setMonthHabit();
                 mockGetScheduledDates.mockResolvedValue(["2025-01-01", "2025-01-15", "2025-01-30"]);
                 mockFindAllByDateRange.mockResolvedValue([
                     { habitId, date: "2025-01-01", status: TODO_STATUS.PENDING },

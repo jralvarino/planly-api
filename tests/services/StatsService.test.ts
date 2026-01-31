@@ -65,6 +65,14 @@ describe("StatsService", () => {
         beforeEach(() => {
             vi.clearAllMocks();
             mockGetTodoListByDate.mockResolvedValue([]);
+            mockGetHabitById.mockResolvedValue({
+                id: "habit-1",
+                userId: "user-1",
+                categoryId: "cat-1",
+                start_date: "2025-01-01",
+                end_date: undefined,
+            });
+            mockGetScheduledDates.mockResolvedValue(["2025-01-14", "2025-01-15"]);
         });
 
         it("returns early when newStatus equals previousStatus (DONE)", async () => {
@@ -166,12 +174,9 @@ describe("StatsService", () => {
                 lastCompletedDate: today,
                 totalCompletions: 2,
             });
-            mockFindByUserDateAndHabit.mockResolvedValue({
-                userId: "user-1",
-                habitId: "habit-1",
-                date: yesterday,
-                status: TODO_STATUS.DONE,
-            });
+            mockFindAllByDateRange.mockResolvedValue([
+                { userId: "user-1", habitId: "habit-1", date: yesterday, status: TODO_STATUS.DONE },
+            ] as any);
 
             const service = new StatsService();
             await service.updateStatsOnTodoStatusChange({
@@ -183,8 +188,9 @@ describe("StatsService", () => {
                 previousStatus: TODO_STATUS.DONE,
             });
 
-            expect(mockFindByUserDateAndHabit).toHaveBeenCalledWith("user-1", yesterday, "habit-1");
-            const [, , fields] = mockUpdateStreakFields.mock.calls[0];
+            const habitCall = mockUpdateStreakFields.mock.calls.find(([_pk, sk]) => sk === "STATS#HABIT#habit-1");
+            expect(habitCall).toBeDefined();
+            const [, , fields] = habitCall!;
             expect(fields.currentStreak).toBe(1);
             expect(fields.totalCompletions).toBe(1);
             expect(fields.lastCompletedDate).toBe(yesterday);
@@ -192,7 +198,6 @@ describe("StatsService", () => {
 
         it("calls updateHabitStatsIncremental when date is today and previousStatus is DONE, yesterday not DONE (resets streak)", async () => {
             const today = "2025-01-15";
-            const yesterday = "2025-01-14";
             mockTodayISO.mockReturnValue(today);
             mockGet.mockResolvedValue({
                 currentStreak: 2,
@@ -200,7 +205,7 @@ describe("StatsService", () => {
                 lastCompletedDate: today,
                 totalCompletions: 2,
             });
-            mockFindByUserDateAndHabit.mockResolvedValue(null);
+            mockFindAllByDateRange.mockResolvedValue([]);
 
             const service = new StatsService();
             await service.updateStatsOnTodoStatusChange({
@@ -301,9 +306,9 @@ describe("StatsService", () => {
             expect(mockUpdateStreakFields).toHaveBeenCalled();
         });
 
-        it("Anki scenario: 22-29 Jan with gaps, change 23 to Done → currentStreak 2, longestStreak 4", async () => {
-            // Scenario: 22 Done, 23 Pending→Done, 24 Done, 25 Done, 26 Pending, 27 Done, 28 Done, 29 Pending
-            // After changing 23 to Done: completed = 22,23,24,25,27,28. Current streak from 29 backwards = 28,27 = 2. Longest run = 22,23,24,25 = 4.
+        it("Anki scenario: 22-29 Jan with gaps, change 23 to Done → currentStreak 2 (29=today pending), longestStreak 4", async () => {
+            // Scenario: 22 Done, 23 Pending→Done, 24 Done, 25 Done, 26 Pending, 27 Done, 28 Done, 29 Pending. Today = 29.
+            // Last scheduled 29 = today and pending → show run before = 28,27 = 2. Longest run = 22,23,24,25 = 4.
             mockTodayISO.mockReturnValue("2025-01-29");
             mockGetHabitById.mockResolvedValue({
                 id: "habit-1",
@@ -350,9 +355,9 @@ describe("StatsService", () => {
             expect(fields.longestStreak).toBe(4);
         });
 
-        it("Anki scenario: 22-29 Jan with gaps, change 26 to Done → currentStreak 5, longestStreak 5", async () => {
-            // Scenario: 22 Done, 23 Pending, 24 Done, 25 Done, 26 Pending→Done, 27 Done, 28 Done, 29 Pending
-            // After changing 26 to Done: completed = 22,24,25,26,27,28. Current streak from 29 backwards = 28,27,26,25,24 = 5. Longest run = 24,25,26,27,28 = 5.
+        it("Anki scenario: 22-29 Jan with gaps, change 26 to Done → currentStreak 5 (29=today pending), longestStreak 5", async () => {
+            // Scenario: 22 Done, 23 Pending, 24 Done, 25 Done, 26 Pending→Done, 27 Done, 28 Done, 29 Pending. Today = 29.
+            // Last scheduled 29 = today and pending → show run before = 28,27,26,25,24 = 5. Longest run = 5.
             mockTodayISO.mockReturnValue("2025-01-29");
             mockGetHabitById.mockResolvedValue({
                 id: "habit-1",
@@ -432,6 +437,429 @@ describe("StatsService", () => {
             expect(fields.currentStreak).toBe(2);
             expect(fields.longestStreak).toBe(2);
             expect(fields.totalCompletions).toBe(2);
+        });
+
+        it("Academia: Seg v, Qua v, Sexta (today) pending → currentStreak 2 (user has until 00:00)", async () => {
+            // Habit Mon, Wed, Fri. Seg and Qua done; today = Fri, still pending. Streak shown = 2 (don't count today as failed yet).
+            const friday = "2025-01-31";
+            mockTodayISO.mockReturnValue(friday);
+            mockGetHabitById.mockResolvedValue({
+                id: "habit-1",
+                userId: "user-1",
+                categoryId: "cat-1",
+                start_date: "2025-01-27",
+                end_date: friday,
+                period_type: "specific_days_week",
+                period_value: "MON,WED,FRI",
+            });
+            mockGetScheduledDates.mockResolvedValue(["2025-01-27", "2025-01-29", friday]);
+            mockFindAllByDateRange.mockResolvedValue([
+                { habitId: "habit-1", date: "2025-01-27", status: TODO_STATUS.DONE },
+                { habitId: "habit-1", date: "2025-01-29", status: TODO_STATUS.DONE },
+                { habitId: "habit-1", date: friday, status: TODO_STATUS.PENDING },
+            ]);
+
+            const service = new StatsService();
+            await service.updateStatsOnTodoStatusChange({
+                userId: "user-1",
+                habitId: "habit-1",
+                categoryId: "cat-1",
+                date: "2025-01-27",
+                newStatus: TODO_STATUS.DONE,
+                previousStatus: TODO_STATUS.PENDING,
+            });
+
+            const habitCall = mockUpdateStreakFields.mock.calls.find(([_pk, sk]) => sk === "STATS#HABIT#habit-1");
+            expect(habitCall).toBeDefined();
+            const [, , fields] = habitCall!;
+            expect(fields.currentStreak).toBe(2);
+            expect(fields.longestStreak).toBe(2);
+            expect(fields.totalCompletions).toBe(2);
+            expect(fields.lastCompletedDate).toBe("2025-01-29");
+        });
+
+        it("Habit Segunda/Quarta/Sexta: Segunda x, Quarta v, Sexta x → user marks Sexta done → habit streak 2", async () => {
+            // Habit scheduled Mon, Wed, Fri. State: Mon not done, Wed done, Fri not done. User marks Fri as done.
+            // Recalculate uses only scheduled dates (Mon, Wed, Fri); completed = Wed, Fri → consecutive at end = 2.
+            const friday = "2025-01-31";
+            const saturday = "2025-02-01";
+            mockTodayISO.mockReturnValue(saturday);
+            mockGetHabitById.mockResolvedValue({
+                id: "habit-1",
+                userId: "user-1",
+                categoryId: "cat-1",
+                start_date: "2025-01-27",
+                end_date: friday,
+                period_type: "specific_days_week",
+                period_value: "MON,WED,FRI",
+            });
+            mockGetScheduledDates.mockResolvedValue(["2025-01-27", "2025-01-29", friday]); // Mon, Wed, Fri
+            mockFindAllByDateRange.mockResolvedValue([
+                { habitId: "habit-1", date: "2025-01-27", status: TODO_STATUS.PENDING },
+                { habitId: "habit-1", date: "2025-01-29", status: TODO_STATUS.DONE },
+                { habitId: "habit-1", date: friday, status: TODO_STATUS.DONE },
+            ]);
+
+            const service = new StatsService();
+            await service.updateStatsOnTodoStatusChange({
+                userId: "user-1",
+                habitId: "habit-1",
+                categoryId: "cat-1",
+                date: friday,
+                newStatus: TODO_STATUS.DONE,
+                previousStatus: TODO_STATUS.PENDING,
+            });
+
+            const habitCall = mockUpdateStreakFields.mock.calls.find(([_pk, sk]) => sk === "STATS#HABIT#habit-1");
+            expect(habitCall).toBeDefined();
+            const [, , fields] = habitCall!;
+            expect(fields.currentStreak).toBe(2);
+            expect(fields.longestStreak).toBe(2);
+            expect(fields.totalCompletions).toBe(2);
+            expect(fields.lastCompletedDate).toBe(friday);
+        });
+
+        describe("specific_days_month", () => {
+            const habitId = "habit-month-1";
+
+            function getHabitUpdateCall() {
+                return mockUpdateStreakFields.mock.calls.find(([_pk, sk]) => sk === `STATS#HABIT#${habitId}`);
+            }
+
+            it("1,15,30 all done → currentStreak 3, longestStreak 3", async () => {
+                mockTodayISO.mockReturnValue("2025-02-01");
+                mockGetHabitById.mockResolvedValue({
+                    id: habitId,
+                    userId: "user-1",
+                    categoryId: "cat-1",
+                    start_date: "2025-01-01",
+                    end_date: "2025-01-31",
+                    period_type: "specific_days_month",
+                    period_value: "1,15,30",
+                });
+                mockGetScheduledDates.mockResolvedValue(["2025-01-01", "2025-01-15", "2025-01-30"]);
+                mockFindAllByDateRange.mockResolvedValue([
+                    { habitId, date: "2025-01-01", status: TODO_STATUS.DONE },
+                    { habitId, date: "2025-01-15", status: TODO_STATUS.DONE },
+                    { habitId, date: "2025-01-30", status: TODO_STATUS.DONE },
+                ]);
+
+                const service = new StatsService();
+                await service.updateStatsOnTodoStatusChange({
+                    userId: "user-1",
+                    habitId,
+                    categoryId: "cat-1",
+                    date: "2025-01-30",
+                    newStatus: TODO_STATUS.DONE,
+                    previousStatus: TODO_STATUS.PENDING,
+                });
+
+                const habitCall = getHabitUpdateCall();
+                expect(habitCall).toBeDefined();
+                const [, , fields] = habitCall!;
+                expect(fields.currentStreak).toBe(3);
+                expect(fields.longestStreak).toBe(3);
+                expect(fields.totalCompletions).toBe(3);
+                expect(fields.lastCompletedDate).toBe("2025-01-30");
+            });
+
+            it("1 done, 15 not, 30 done → currentStreak 1, longestStreak 1", async () => {
+                mockTodayISO.mockReturnValue("2025-02-01");
+                mockGetHabitById.mockResolvedValue({
+                    id: habitId,
+                    userId: "user-1",
+                    categoryId: "cat-1",
+                    start_date: "2025-01-01",
+                    end_date: "2025-01-31",
+                    period_type: "specific_days_month",
+                    period_value: "1,15,30",
+                });
+                mockGetScheduledDates.mockResolvedValue(["2025-01-01", "2025-01-15", "2025-01-30"]);
+                mockFindAllByDateRange.mockResolvedValue([
+                    { habitId, date: "2025-01-01", status: TODO_STATUS.DONE },
+                    { habitId, date: "2025-01-15", status: TODO_STATUS.PENDING },
+                    { habitId, date: "2025-01-30", status: TODO_STATUS.DONE },
+                ]);
+
+                const service = new StatsService();
+                await service.updateStatsOnTodoStatusChange({
+                    userId: "user-1",
+                    habitId,
+                    categoryId: "cat-1",
+                    date: "2025-01-30",
+                    newStatus: TODO_STATUS.DONE,
+                    previousStatus: TODO_STATUS.PENDING,
+                });
+
+                const habitCall = getHabitUpdateCall();
+                expect(habitCall).toBeDefined();
+                const [, , fields] = habitCall!;
+                expect(fields.currentStreak).toBe(1);
+                expect(fields.longestStreak).toBe(1);
+                expect(fields.totalCompletions).toBe(2);
+                expect(fields.lastCompletedDate).toBe("2025-01-30");
+            });
+
+            it("5,20 in 3 months, last 20 pending → currentStreak 0 (trailing run), longestStreak 5", async () => {
+                mockTodayISO.mockReturnValue("2025-03-21");
+                mockGetHabitById.mockResolvedValue({
+                    id: habitId,
+                    userId: "user-1",
+                    categoryId: "cat-1",
+                    start_date: "2025-01-01",
+                    end_date: "2025-03-31",
+                    period_type: "specific_days_month",
+                    period_value: "5,20",
+                });
+                const scheduled = ["2025-01-05", "2025-01-20", "2025-02-05", "2025-02-20", "2025-03-05", "2025-03-20"];
+                mockGetScheduledDates.mockResolvedValue(scheduled);
+                mockFindAllByDateRange.mockResolvedValue([
+                    { habitId, date: "2025-01-05", status: TODO_STATUS.DONE },
+                    { habitId, date: "2025-01-20", status: TODO_STATUS.DONE },
+                    { habitId, date: "2025-02-05", status: TODO_STATUS.DONE },
+                    { habitId, date: "2025-02-20", status: TODO_STATUS.DONE },
+                    { habitId, date: "2025-03-05", status: TODO_STATUS.DONE },
+                    { habitId, date: "2025-03-20", status: TODO_STATUS.PENDING },
+                ]);
+
+                const service = new StatsService();
+                await service.updateStatsOnTodoStatusChange({
+                    userId: "user-1",
+                    habitId,
+                    categoryId: "cat-1",
+                    date: "2025-03-05",
+                    newStatus: TODO_STATUS.DONE,
+                    previousStatus: TODO_STATUS.PENDING,
+                });
+
+                const habitCall = getHabitUpdateCall();
+                expect(habitCall).toBeDefined();
+                const [, , fields] = habitCall!;
+                expect(fields.currentStreak).toBe(0);
+                expect(fields.longestStreak).toBe(5);
+                expect(fields.totalCompletions).toBe(5);
+                expect(fields.lastCompletedDate).toBe("2025-03-05");
+            });
+
+            it("5,20 all done in 3 months → currentStreak 6, longestStreak 6", async () => {
+                mockTodayISO.mockReturnValue("2025-03-21");
+                mockGetHabitById.mockResolvedValue({
+                    id: habitId,
+                    userId: "user-1",
+                    categoryId: "cat-1",
+                    start_date: "2025-01-01",
+                    end_date: "2025-03-31",
+                    period_type: "specific_days_month",
+                    period_value: "5,20",
+                });
+                const scheduled = ["2025-01-05", "2025-01-20", "2025-02-05", "2025-02-20", "2025-03-05", "2025-03-20"];
+                mockGetScheduledDates.mockResolvedValue(scheduled);
+                mockFindAllByDateRange.mockResolvedValue(
+                    scheduled.map((date) => ({ habitId, date, status: TODO_STATUS.DONE }))
+                );
+
+                const service = new StatsService();
+                await service.updateStatsOnTodoStatusChange({
+                    userId: "user-1",
+                    habitId,
+                    categoryId: "cat-1",
+                    date: "2025-03-20",
+                    newStatus: TODO_STATUS.DONE,
+                    previousStatus: TODO_STATUS.PENDING,
+                });
+
+                const habitCall = getHabitUpdateCall();
+                expect(habitCall).toBeDefined();
+                const [, , fields] = habitCall!;
+                expect(fields.currentStreak).toBe(6);
+                expect(fields.longestStreak).toBe(6);
+                expect(fields.totalCompletions).toBe(6);
+                expect(fields.lastCompletedDate).toBe("2025-03-20");
+            });
+
+            it("only day 1, 2 months done → currentStreak 0 (trailing run), longestStreak 2", async () => {
+                mockTodayISO.mockReturnValue("2025-04-02");
+                mockGetHabitById.mockResolvedValue({
+                    id: habitId,
+                    userId: "user-1",
+                    categoryId: "cat-1",
+                    start_date: "2025-01-01",
+                    end_date: "2025-04-30",
+                    period_type: "specific_days_month",
+                    period_value: "1",
+                });
+                mockGetScheduledDates.mockResolvedValue(["2025-01-01", "2025-02-01", "2025-03-01", "2025-04-01"]);
+                mockFindAllByDateRange.mockResolvedValue([
+                    { habitId, date: "2025-01-01", status: TODO_STATUS.DONE },
+                    { habitId, date: "2025-02-01", status: TODO_STATUS.DONE },
+                    { habitId, date: "2025-03-01", status: TODO_STATUS.PENDING },
+                    { habitId, date: "2025-04-01", status: TODO_STATUS.PENDING },
+                ]);
+
+                const service = new StatsService();
+                await service.updateStatsOnTodoStatusChange({
+                    userId: "user-1",
+                    habitId,
+                    categoryId: "cat-1",
+                    date: "2025-02-01",
+                    newStatus: TODO_STATUS.DONE,
+                    previousStatus: TODO_STATUS.PENDING,
+                });
+
+                const habitCall = getHabitUpdateCall();
+                expect(habitCall).toBeDefined();
+                const [, , fields] = habitCall!;
+                expect(fields.currentStreak).toBe(0);
+                expect(fields.longestStreak).toBe(2);
+                expect(fields.totalCompletions).toBe(2);
+                expect(fields.lastCompletedDate).toBe("2025-02-01");
+            });
+
+            it("only day 30, Jan and Mar done (Feb has no 30) → currentStreak 2", async () => {
+                mockTodayISO.mockReturnValue("2025-04-01");
+                mockGetHabitById.mockResolvedValue({
+                    id: habitId,
+                    userId: "user-1",
+                    categoryId: "cat-1",
+                    start_date: "2025-01-01",
+                    end_date: "2025-03-31",
+                    period_type: "specific_days_month",
+                    period_value: "30",
+                });
+                mockGetScheduledDates.mockResolvedValue(["2025-01-30", "2025-03-30"]);
+                mockFindAllByDateRange.mockResolvedValue([
+                    { habitId, date: "2025-01-30", status: TODO_STATUS.DONE },
+                    { habitId, date: "2025-03-30", status: TODO_STATUS.DONE },
+                ]);
+
+                const service = new StatsService();
+                await service.updateStatsOnTodoStatusChange({
+                    userId: "user-1",
+                    habitId,
+                    categoryId: "cat-1",
+                    date: "2025-03-30",
+                    newStatus: TODO_STATUS.DONE,
+                    previousStatus: TODO_STATUS.PENDING,
+                });
+
+                const habitCall = getHabitUpdateCall();
+                expect(habitCall).toBeDefined();
+                const [, , fields] = habitCall!;
+                expect(fields.currentStreak).toBe(2);
+                expect(fields.longestStreak).toBe(2);
+                expect(fields.totalCompletions).toBe(2);
+                expect(fields.lastCompletedDate).toBe("2025-03-30");
+            });
+
+            it("only day 31, Jan and Mar done (Feb/Apr have no 31) → currentStreak 0 (trailing run)", async () => {
+                mockTodayISO.mockReturnValue("2025-06-01");
+                mockGetHabitById.mockResolvedValue({
+                    id: habitId,
+                    userId: "user-1",
+                    categoryId: "cat-1",
+                    start_date: "2025-01-01",
+                    end_date: "2025-05-31",
+                    period_type: "specific_days_month",
+                    period_value: "31",
+                });
+                mockGetScheduledDates.mockResolvedValue(["2025-01-31", "2025-03-31", "2025-05-31"]);
+                mockFindAllByDateRange.mockResolvedValue([
+                    { habitId, date: "2025-01-31", status: TODO_STATUS.DONE },
+                    { habitId, date: "2025-03-31", status: TODO_STATUS.DONE },
+                    { habitId, date: "2025-05-31", status: TODO_STATUS.PENDING },
+                ]);
+
+                const service = new StatsService();
+                await service.updateStatsOnTodoStatusChange({
+                    userId: "user-1",
+                    habitId,
+                    categoryId: "cat-1",
+                    date: "2025-03-31",
+                    newStatus: TODO_STATUS.DONE,
+                    previousStatus: TODO_STATUS.PENDING,
+                });
+
+                const habitCall = getHabitUpdateCall();
+                expect(habitCall).toBeDefined();
+                const [, , fields] = habitCall!;
+                expect(fields.currentStreak).toBe(0);
+                expect(fields.longestStreak).toBe(2);
+                expect(fields.totalCompletions).toBe(2);
+                expect(fields.lastCompletedDate).toBe("2025-03-31");
+            });
+
+            it("start_date 10/01, 15 and 30 done (1st before start) → currentStreak 2", async () => {
+                mockTodayISO.mockReturnValue("2025-02-01");
+                mockGetHabitById.mockResolvedValue({
+                    id: habitId,
+                    userId: "user-1",
+                    categoryId: "cat-1",
+                    start_date: "2025-01-10",
+                    end_date: "2025-01-31",
+                    period_type: "specific_days_month",
+                    period_value: "1,15,30",
+                });
+                mockGetScheduledDates.mockResolvedValue(["2025-01-15", "2025-01-30"]);
+                mockFindAllByDateRange.mockResolvedValue([
+                    { habitId, date: "2025-01-15", status: TODO_STATUS.DONE },
+                    { habitId, date: "2025-01-30", status: TODO_STATUS.DONE },
+                ]);
+
+                const service = new StatsService();
+                await service.updateStatsOnTodoStatusChange({
+                    userId: "user-1",
+                    habitId,
+                    categoryId: "cat-1",
+                    date: "2025-01-30",
+                    newStatus: TODO_STATUS.DONE,
+                    previousStatus: TODO_STATUS.PENDING,
+                });
+
+                const habitCall = getHabitUpdateCall();
+                expect(habitCall).toBeDefined();
+                const [, , fields] = habitCall!;
+                expect(fields.currentStreak).toBe(2);
+                expect(fields.longestStreak).toBe(2);
+                expect(fields.totalCompletions).toBe(2);
+                expect(fields.lastCompletedDate).toBe("2025-01-30");
+            });
+
+            it("mark 30/01 done with today 01/02 (date !== today) → currentStreak 2", async () => {
+                mockTodayISO.mockReturnValue("2025-02-01");
+                mockGetHabitById.mockResolvedValue({
+                    id: habitId,
+                    userId: "user-1",
+                    categoryId: "cat-1",
+                    start_date: "2025-01-01",
+                    end_date: "2025-01-31",
+                    period_type: "specific_days_month",
+                    period_value: "1,15,30",
+                });
+                mockGetScheduledDates.mockResolvedValue(["2025-01-01", "2025-01-15", "2025-01-30"]);
+                mockFindAllByDateRange.mockResolvedValue([
+                    { habitId, date: "2025-01-01", status: TODO_STATUS.PENDING },
+                    { habitId, date: "2025-01-15", status: TODO_STATUS.DONE },
+                    { habitId, date: "2025-01-30", status: TODO_STATUS.DONE },
+                ]);
+
+                const service = new StatsService();
+                await service.updateStatsOnTodoStatusChange({
+                    userId: "user-1",
+                    habitId,
+                    categoryId: "cat-1",
+                    date: "2025-01-30",
+                    newStatus: TODO_STATUS.DONE,
+                    previousStatus: TODO_STATUS.PENDING,
+                });
+
+                const habitCall = getHabitUpdateCall();
+                expect(habitCall).toBeDefined();
+                const [, , fields] = habitCall!;
+                expect(fields.currentStreak).toBe(2);
+                expect(fields.longestStreak).toBe(2);
+                expect(fields.totalCompletions).toBe(2);
+                expect(fields.lastCompletedDate).toBe("2025-01-30");
+            });
         });
     });
 

@@ -5,6 +5,8 @@ import { addDays, todayISO } from "../utils/util.js";
 import { TodoRepository } from "../repositories/TodoRepository.js";
 import { logger } from "../utils/logger.js";
 import { InternalServerError } from "../errors/PlanlyError.js";
+import { Habit } from "../models/Habit.js";
+import { Todo } from "../models/Todo.js";
 import { HabitService } from "./HabitService.js";
 import { TodoService, isValidForTargetDate } from "./TodoService.js";
 import { TodoList } from "../models/TodoList.js";
@@ -45,6 +47,70 @@ export class StatsService {
             this._todoService = new TodoService();
         }
         return this._todoService;
+    }
+
+    /** Retorna as datas em que o hábito está DONE na lista de todos. */
+    private getCompletedDatesFromTodoList(todos: Todo[], habitId: string): Set<string> {
+        return todos.reduce<Set<string>>((set, t) => {
+            if (t.habitId === habitId && t.status === TODO_STATUS.DONE) {
+                set.add(t.date);
+            }
+            return set;
+        }, new Set());
+    }
+
+    /** Retorna a última data agendada estritamente antes de `date`. */
+    private async getPreviousScheduledDate(habit: Habit, date: string): Promise<string | undefined> {
+        const scheduledDates = await this.habitService.getScheduledDates(habit, date);
+        const sorted = [...scheduledDates].sort();
+        const before = sorted.filter((d) => d < date);
+        return before[before.length - 1] ?? undefined;
+    }
+
+    /**
+     * Percorre as datas agendadas em ordem e retorna currentStreak, longestStreak e lastCompletedDate.
+     * currentStreak = run no fim da lista (trailing run); se houver gap antes do fim, streak = 0.
+     * Exceção: se o último dia agendado for `today` e ainda não estiver completo, o streak mostrado
+     * é o run anterior (usuário tem até 00:00 para completar, não conta como falha).
+     */
+    private computeFullStreakStats(
+        scheduledAsc: string[],
+        completedDates: Set<string>,
+        today?: string
+    ): { currentStreak: number; longestStreak: number; lastCompletedDate: string | undefined } {
+        let longestStreak = 0;
+        let run = 0;
+        let lastCompletedDate: string | undefined;
+        let lastRunLengthWhenGap = 0;
+
+        for (const date of scheduledAsc) {
+            if (completedDates.has(date)) {
+                run++;
+                longestStreak = Math.max(longestStreak, run);
+                lastCompletedDate = date;
+            } else {
+                if (run > 0) lastRunLengthWhenGap = run;
+                run = 0;
+            }
+        }
+
+        const lastScheduled = scheduledAsc[scheduledAsc.length - 1];
+        const pendingToday = today != null && lastScheduled === today && !completedDates.has(today);
+        const currentStreak = pendingToday ? lastRunLengthWhenGap : run;
+        return { currentStreak, longestStreak, lastCompletedDate };
+    }
+
+    /**
+     * Calcula o streak e a última data completada considerando só datas agendadas até `upToDateInclusive`.
+     */
+    private computeStreakUpTo(
+        scheduledAsc: string[],
+        completedDates: Set<string>,
+        upToDateInclusive: string
+    ): { streak: number; lastCompletedDate: string | undefined } {
+        const upTo = scheduledAsc.filter((d) => d <= upToDateInclusive);
+        const { currentStreak, lastCompletedDate } = this.computeFullStreakStats(upTo, completedDates);
+        return { streak: currentStreak, lastCompletedDate };
     }
 
     async createStats(userId: string, habitId: string, categoryId: string): Promise<Stats[]> {
@@ -95,6 +161,8 @@ export class StatsService {
                 this.throwIfStatsUpdatesFailed(results, scopes, { userId, habitId, date });
             } else {
                 await this.recalculateHabitStats(userId, habitId);
+                await this.recalculateCategoryStats(userId, categoryId);
+                await this.recalculateUserStats(userId);
             }
         } catch (error) {
             if (error instanceof InternalServerError) {
@@ -141,10 +209,13 @@ export class StatsService {
             habitId,
         });
 
-        const yesterday = addDays(date, -1);
+        const habit = await this.habitService.getHabitById(userId, habitId);
+        const sortedScheduled = [...(await this.habitService.getScheduledDates(habit, date))].sort();
+        const previousScheduledDate = await this.getPreviousScheduledDate(habit, date);
+
         if (newStatus === TODO_STATUS.DONE) {
             totalCompletions += 1;
-            if (lastCompletedDate === yesterday) {
+            if (previousScheduledDate != null && lastCompletedDate === previousScheduledDate) {
                 currentStreak++;
                 lastCompletedDate = date;
             } else {
@@ -154,13 +225,19 @@ export class StatsService {
         } else if (previousStatus === TODO_STATUS.DONE) {
             totalCompletions = Math.max(0, totalCompletions - 1);
             if (lastCompletedDate === date) {
-                const todoYesterday = await this.todoRepository.findByUserDateAndHabit(userId, yesterday, habitId);
-                if (todoYesterday?.status === TODO_STATUS.DONE) {
-                    currentStreak = Math.max(0, currentStreak - 1);
-                    lastCompletedDate = yesterday;
-                } else {
+                if (previousScheduledDate == null) {
                     currentStreak = 0;
                     lastCompletedDate = undefined;
+                } else {
+                    const todoList = await this.todoRepository.findAllByDateRange(userId, habit.start_date, date);
+                    const completedDates = this.getCompletedDatesFromTodoList(todoList, habitId);
+                    const { streak, lastCompletedDate: lastInRange } = this.computeStreakUpTo(
+                        sortedScheduled,
+                        completedDates,
+                        previousScheduledDate
+                    );
+                    currentStreak = streak;
+                    lastCompletedDate = lastInRange;
                 }
             }
         }
@@ -285,54 +362,20 @@ export class StatsService {
 
         const habit = await this.habitService.getHabitById(userId, habitId);
 
-        let endDate = habit.end_date;
-        if (!endDate) {
-            endDate = todayISO();
-        }
-        const queryEndDate = todayISO() >= endDate ? todayISO() : endDate;
+        const queryEndDate = this.getEndDate(habit);
 
         const todoList = await this.todoRepository.findAllByDateRange(userId, habit.start_date, queryEndDate);
-
-        const completedDates = todoList.reduce<Set<string>>((set, t) => {
-            if (t.habitId === habitId && t.status === TODO_STATUS.DONE) {
-                set.add(t.date);
-            }
-            return set;
-        }, new Set());
+        const completedDates = this.getCompletedDatesFromTodoList(todoList, habitId);
 
         const scheduledDates = await this.habitService.getScheduledDates(habit, queryEndDate);
 
         const sortedAsc = [...scheduledDates].sort();
-
-        let currentStreak = 0;
-        let longestStreak = 0;
-        let run = 0;
-        let lastCompletedDate: string | undefined;
-        let runStartDate: string | undefined;
-        let lastRunLengthWhenGap = 0;
-        let lastRunStartWhenGap: string | undefined;
-
-        for (const date of sortedAsc) {
-            if (completedDates.has(date)) {
-                run++;
-                if (run === 1) runStartDate = date;
-                longestStreak = Math.max(longestStreak, run);
-                lastCompletedDate = date;
-            } else {
-                if (run > 0) {
-                    lastRunLengthWhenGap = run;
-                    lastRunStartWhenGap = runStartDate;
-                }
-                run = 0;
-                runStartDate = undefined;
-            }
-        }
-
-        if (run > 0) {
-            currentStreak = run;
-        } else {
-            currentStreak = lastRunLengthWhenGap;
-        }
+        const today = todayISO();
+        const { currentStreak, longestStreak, lastCompletedDate } = this.computeFullStreakStats(
+            sortedAsc,
+            completedDates,
+            today
+        );
 
         await this.repository.updateStreakFields(this.generatePK(userId), this.generateSK("HABIT", habitId, ""), {
             currentStreak,
@@ -346,6 +389,107 @@ export class StatsService {
             lastCompletedDate,
             totalCompletions: completedDates.size,
         });
+    }
+
+    private async recalculateCategoryStats(userId: string, categoryId: string): Promise<void> {
+        const habits = await this.getHabitsByCategory(userId, categoryId);
+        if (habits.length === 0) return;
+
+        const today = todayISO();
+        const startDate = habits.reduce((min, h) => (h.start_date < min ? h.start_date : min), habits[0].start_date);
+        const endDate = this.getEndDate(habits[0]);
+        const todoList = await this.todoRepository.findAllByDateRange(userId, startDate, endDate);
+        const habitIds = new Set(habits.map((h) => h.id));
+        const completedDates = this.getCompletedCategoryDatesFromTodoList(todoList, habitIds);
+        const scheduledAsc = this.datesRange(startDate, today);
+
+        const { currentStreak, longestStreak, lastCompletedDate } = this.computeFullStreakStats(
+            scheduledAsc,
+            completedDates,
+            today
+        );
+
+        await this.repository.updateStreakFields(this.generatePK(userId), this.generateSK("CATEGORY", "", categoryId), {
+            currentStreak,
+            longestStreak,
+            lastCompletedDate,
+            totalCompletions: completedDates.size,
+        });
+        logger.info(`Category stats updated for ${categoryId}`, { currentStreak, longestStreak });
+    }
+
+    private async recalculateUserStats(userId: string): Promise<void> {
+        const habits = await this.habitService.getAllHabits(userId);
+        if (habits.length === 0) return;
+
+        const today = todayISO();
+        const startDate = habits.reduce((min, h) => (h.start_date < min ? h.start_date : min), habits[0].start_date);
+        const endDate = today;
+        const todoList = await this.todoRepository.findAllByDateRange(userId, startDate, endDate);
+        const completedDates = this.getCompletedUserDatesFromTodoList(todoList);
+        const scheduledAsc = this.datesRange(startDate, today);
+
+        const { currentStreak, longestStreak, lastCompletedDate } = this.computeFullStreakStats(
+            scheduledAsc,
+            completedDates,
+            today
+        );
+
+        await this.repository.updateStreakFields(this.generatePK(userId), this.generateSK("USER", "", ""), {
+            currentStreak,
+            longestStreak,
+            lastCompletedDate,
+            totalCompletions: completedDates.size,
+        });
+        logger.info(`User stats updated for ${userId}`, { currentStreak, longestStreak });
+    }
+
+    /** Datas em que todos os TODOs do usuário naquele dia estão DONE. */
+    private getCompletedUserDatesFromTodoList(todos: Todo[]): Set<string> {
+        const byDate = new Map<string, Todo[]>();
+        for (const t of todos) {
+            if (!byDate.has(t.date)) byDate.set(t.date, []);
+            byDate.get(t.date)!.push(t);
+        }
+        const completed = new Set<string>();
+        for (const [date, list] of byDate) {
+            if (list.length > 0 && list.every((t) => t.status === TODO_STATUS.DONE)) {
+                completed.add(date);
+            }
+        }
+        return completed;
+    }
+
+    private datesRange(startDate: string, endDate: string): string[] {
+        const dates: string[] = [];
+        let d = startDate;
+        while (d <= endDate) {
+            dates.push(d);
+            d = addDays(d, 1);
+        }
+        return dates;
+    }
+
+    private async getHabitsByCategory(userId: string, categoryId: string): Promise<Habit[]> {
+        const habits = await this.habitService.getAllHabits(userId);
+        return habits.filter((h) => h.categoryId === categoryId);
+    }
+
+    /** Datas em que todos os TODOs da categoria (habitIds) naquele dia estão DONE. */
+    private getCompletedCategoryDatesFromTodoList(todos: Todo[], habitIds: Set<string>): Set<string> {
+        const byDate = new Map<string, Todo[]>();
+        for (const t of todos) {
+            if (!habitIds.has(t.habitId)) continue;
+            if (!byDate.has(t.date)) byDate.set(t.date, []);
+            byDate.get(t.date)!.push(t);
+        }
+        const completed = new Set<string>();
+        for (const [date, list] of byDate) {
+            if (list.length > 0 && list.every((t) => t.status === TODO_STATUS.DONE)) {
+                completed.add(date);
+            }
+        }
+        return completed;
     }
 
     private throwIfStatsUpdatesFailed(
@@ -406,5 +550,14 @@ export class StatsService {
             default:
                 throw new Error(`Invalid scope: ${scope}`);
         }
+    }
+
+    private getEndDate(habit: Habit): string {
+        let endDate = habit.end_date;
+        if (!endDate) {
+            endDate = todayISO();
+        }
+        const queryEndDate = todayISO() >= endDate ? todayISO() : endDate;
+        return queryEndDate;
     }
 }

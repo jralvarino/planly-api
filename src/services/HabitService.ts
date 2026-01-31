@@ -110,10 +110,11 @@ export class HabitService {
         let currentDate = habit.start_date;
 
         while (currentDate <= endDate) {
-            if (isValidForTargetDate(habit, new Date(habit.start_date))) {
+            const [y, m, d] = currentDate.split("-").map(Number);
+            const currentDateObj = new Date(y, m - 1, d);
+            if (isValidForTargetDate(habit, currentDateObj)) {
                 todoValidList.push(currentDate);
             }
-            const [y, m, d] = currentDate.split("-").map(Number);
             const next = new Date(y, m - 1, d);
             next.setDate(next.getDate() + 1);
             currentDate = next.toISOString().slice(0, 10);

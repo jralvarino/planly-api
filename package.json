@@ -17,6 +17,8 @@
         "docker:logs": "docker-compose logs -f",
         "docker:build": "docker-compose build",
         "docker:init-db": "chmod +x scripts/init-dynamodb.sh && DYNAMODB_ENDPOINT=http://localhost:8000 ./scripts/init-dynamodb.sh",
+        "reset-stats": "chmod +x scripts/reset-stats.sh && ./scripts/reset-stats.sh",
+        "reset-stats:ts": "npm run build && node dist/scripts/reset-stats.js",
         "docker:restart": "docker-compose down && docker-compose up -d",
         "test": "vitest run",
         "test:watch": "vitest",

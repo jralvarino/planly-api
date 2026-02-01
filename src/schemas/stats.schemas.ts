@@ -7,6 +7,7 @@ export const getDashboardSchema = z.object({
     queryStringParameters: z.object({
         month: z.string().regex(monthRegex),
         categoryId: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
+        habitId: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
         selectedDate: z.preprocess((v) => (v === "" ? undefined : v), z.string().regex(dateRegex).optional()),
     }),
 });

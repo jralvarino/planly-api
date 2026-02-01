@@ -160,6 +160,7 @@ components:
                 categoryStreak: { type: number }
                 categoryLongestStreak: { type: number }
                 categoryTotalCompletions: { type: number }
+                habitStreak: { type: number, description: "Present when habitId is provided" }
         Error:
             type: object
             properties:
@@ -964,6 +965,12 @@ paths:
                   in: query
                   required: false
                   description: Optional category filter
+                  schema:
+                      type: string
+                - name: habitId
+                  in: query
+                  required: false
+                  description: Optional habit filter
                   schema:
                       type: string
                 - name: selectedDate

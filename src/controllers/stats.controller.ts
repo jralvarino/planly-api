@@ -22,7 +22,7 @@ const getGlobalStreak = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     });
 
 type ValidatedDashboard = APIGatewayProxyEvent & {
-    validated: { queryStringParameters: { month: string; categoryId?: string; selectedDate?: string } };
+    validated: { queryStringParameters: { month: string; categoryId?: string; habitId?: string; selectedDate?: string } };
 };
 
 const getDashboard = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
@@ -30,9 +30,9 @@ const getDashboard = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(zodValidator(getDashboardSchema))
     .handler(async (event) => {
         const userId = getUserId(event);
-        const { month, categoryId, selectedDate } = (event as ValidatedDashboard).validated.queryStringParameters;
+        const { month, categoryId, habitId, selectedDate } = (event as ValidatedDashboard).validated.queryStringParameters;
 
-        const data = await getStatsService().getDashboardData(userId, month, categoryId, selectedDate);
+        const data = await getStatsService().getDashboardData(userId, month, categoryId, habitId, selectedDate);
 
         return success(data);
     });

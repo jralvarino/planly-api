@@ -86,8 +86,8 @@ export class StatsService {
             repository: this.repository,
             todoRepository: this.todoRepository,
             habitService: this.habitService,
-            getTodoListByDate: (userId, date, categoryId) =>
-                this.todoService.getTodoListByDate(userId, date, categoryId),
+            getTodoListByDate: (userId, date, categoryId, habitId) =>
+                this.todoService.getTodoListByDate(userId, date, categoryId, habitId),
         });
     }
 
@@ -241,9 +241,10 @@ export class StatsService {
         userId: string,
         month: string,
         categoryId?: string,
+        habitId?: string,
         selectedDate?: string
     ): Promise<StatsDashboardData> {
-        return this.dashboardAggregator.getData(userId, month, categoryId, selectedDate);
+        return this.dashboardAggregator.getData(userId, month, categoryId, habitId, selectedDate);
     }
 
     async getHabitStats(params: GetHabitStatsParams): Promise<Stats> {

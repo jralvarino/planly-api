@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 280" width="200" height="280">
+  <defs>
+    <!-- Gradiente dourado para o disco da medalha -->
+    <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFD700;stop-opacity:1" />
+      <stop offset="30%" style="stop-color:#FFC107;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#FFD54F;stop-opacity:1" />
+      <stop offset="70%" style="stop-color:#B8860B;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8B6914;stop-opacity:1" />
+    </linearGradient>
+
+    <!-- Gradiente para a estrela -->
+    <linearGradient id="starGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFE082;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#FFD54F;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#B8860B;stop-opacity:1" />
+    </linearGradient>
+
+    <!-- Padr?o de listras diagonais para a fita -->
+    <pattern id="ribbonStripes" patternUnits="userSpaceOnUse" width="12" height="12" patternTransform="rotate(-45)">
+      <rect width="6" height="12" fill="#C41E3A" />
+      <rect x="6" width="6" height="12" fill="#FFD700" />
+    </pattern>
+
+    <!-- Sombra da fita -->
+    <filter id="ribbonShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="2" dy="3" stdDeviation="2" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+
+    <!-- Sombra sutil no disco -->
+    <filter id="medalShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="1" flood-color="#000" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+
+  <!-- Fita hexagonal com listras diagonais (conecta ao topo do disco) -->
+  <g filter="url(#ribbonShadow)">
+    <path 
+      d="M 100 5 
+         L 65 90 
+         L 100 112 
+         L 135 90 Z" 
+      fill="url(#ribbonStripes)"
+      stroke="#8B0000"
+      stroke-width="0.5"
+      stroke-opacity="0.3"
+    />
+  </g>
+
+  <!-- Disco da medalha (anel dourado externo) -->
+  <g filter="url(#medalShadow)">
+    <circle 
+      cx="100" 
+      cy="180" 
+      r="70" 
+      fill="none" 
+      stroke="url(#goldGradient)" 
+      stroke-width="12"
+    />
+    
+    <!-- Anel interno para profundidade -->
+    <circle 
+      cx="100" 
+      cy="180" 
+      r="62" 
+      fill="url(#goldGradient)"
+      stroke="#B8860B"
+      stroke-width="1"
+      stroke-opacity="0.5"
+    />
+  </g>
+
+  <!-- Estrela de cinco pontas central -->
+  <path 
+    d="M 100 130
+       L 110 165
+       L 148 165
+       L 118 188
+       L 128 223
+       L 100 200
+       L 72 223
+       L 82 188
+       L 52 165
+       L 90 165 Z"
+    fill="url(#starGradient)"
+    stroke="#8B6914"
+    stroke-width="1"
+    stroke-opacity="0.4"
+  />
+</svg>

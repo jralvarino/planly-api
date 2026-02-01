@@ -72,7 +72,7 @@ export class TodoService {
         return todo;
     }
 
-    async getTodoListByDate(userId: string, date: string, categoryId?: string): Promise<TodoList[]> {
+    async getTodoListByDate(userId: string, date: string, categoryId?: string, habitId?: string): Promise<TodoList[]> {
         const habits = await this.habitRepository.findAllByDate(userId, date);
 
         const targetDate = new Date(date);
@@ -81,13 +81,20 @@ export class TodoService {
         if (categoryId) {
             eligibleHabits = eligibleHabits.filter((h) => h.categoryId === categoryId);
         }
+        if (habitId) {
+            eligibleHabits = eligibleHabits.filter((h) => h.id === habitId);
+        }
 
         const todoList: TodoList[] = await Promise.all(
             eligibleHabits.map(async (habit) => {
-
                 const todo = await this.todoRepository.findByUserDateAndHabit(userId, date, habit.id);
 
-                const currentStreak = await this.statsService.getHabitStats({ scope: "HABIT", userId, habitId: habit.id, categoryId: habit.categoryId });
+                const currentStreak = await this.statsService.getHabitStats({
+                    scope: "HABIT",
+                    userId,
+                    habitId: habit.id,
+                    categoryId: habit.categoryId,
+                });
 
                 return {
                     id: habit.id,

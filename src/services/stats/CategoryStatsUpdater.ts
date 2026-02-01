@@ -12,12 +12,7 @@ import type { Stats } from "../../models/Stats.js";
 import type { TodoList } from "../../models/TodoList.js";
 
 export interface GetHabitStatsFn {
-    (params: {
-        scope: "CATEGORY";
-        userId: string;
-        habitId: string;
-        categoryId?: string;
-    }): Promise<Stats>;
+    (params: { scope: "CATEGORY"; userId: string; habitId: string; categoryId?: string }): Promise<Stats>;
 }
 
 export interface GetTodoListByDateFn {
@@ -72,11 +67,7 @@ export class CategoryStatsUpdater {
             }
         } else if (lastCompletedDate === date) {
             totalCompletions = Math.max(0, totalCompletions - 1);
-            const isAllYesterdayComplete = await this.isAllTodoByCategoryCompleted(
-                userId,
-                categoryId ?? "",
-                yesterday
-            );
+            const isAllYesterdayComplete = await this.isAllTodoByCategoryCompleted(userId, categoryId ?? "", yesterday);
 
             if (isAllYesterdayComplete) {
                 currentStreak = Math.max(0, currentStreak - 1);
@@ -101,16 +92,12 @@ export class CategoryStatsUpdater {
             computed: { currentStreak, longestStreak, lastCompletedDate, totalCompletions },
         });
 
-        await repository.updateStreakFields(
-            generatePK(userId),
-            generateSK("CATEGORY", habitId, categoryId ?? ""),
-            {
-                currentStreak,
-                longestStreak,
-                lastCompletedDate,
-                totalCompletions,
-            }
-        );
+        await repository.updateStreakFields(generatePK(userId), generateSK("CATEGORY", habitId, categoryId ?? ""), {
+            currentStreak,
+            longestStreak,
+            lastCompletedDate,
+            totalCompletions,
+        });
     }
 
     async recalculate(userId: string, categoryId: string): Promise<void> {

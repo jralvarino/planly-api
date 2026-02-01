@@ -20,13 +20,14 @@ export interface StatsDashboardData {
     categoryStreak?: number;
     categoryLongestStreak?: number;
     categoryTotalCompletions?: number;
+    habitStreak?: number;
 }
 
 export interface StatsDashboardAggregatorDeps {
     repository: StatsRepository;
     todoRepository: TodoRepository;
     habitService: HabitService;
-    getTodoListByDate: (userId: string, date: string, categoryId?: string) => Promise<TodoList[]>;
+    getTodoListByDate: (userId: string, date: string, categoryId?: string, habitId?: string) => Promise<TodoList[]>;
 }
 
 export class StatsDashboardAggregator {
@@ -36,9 +37,10 @@ export class StatsDashboardAggregator {
         userId: string,
         month: string,
         categoryId?: string,
+        habitId?: string,
         selectedDate?: string
     ): Promise<StatsDashboardData> {
-        logger.info("Stats getDashboardData", { userId, month, categoryId, selectedDate });
+        logger.info("Stats getDashboardData", { userId, month, categoryId, habitId, selectedDate });
 
         const [y, m] = month.split("-").map(Number);
         const firstDay = `${month}-01`;
@@ -49,7 +51,7 @@ export class StatsDashboardAggregator {
         const monthDates = datesRange(firstDay, lastDay);
         const completedDates: string[] = [];
         for (const date of monthDates) {
-            const todoList = await this.deps.getTodoListByDate(userId, date, categoryId);
+            const todoList = await this.deps.getTodoListByDate(userId, date, categoryId, habitId);
             const allDone =
                 todoList.length > 0 && todoList.every((t) => t.status === TODO_STATUS.DONE);
             if (allDone) {
@@ -60,7 +62,7 @@ export class StatsDashboardAggregator {
 
         let habitsForSelectedDate: TodoList[] | undefined;
         if (selectedDate) {
-            habitsForSelectedDate = await this.deps.getTodoListByDate(userId, selectedDate, categoryId);
+            habitsForSelectedDate = await this.deps.getTodoListByDate(userId, selectedDate, categoryId, habitId);
         }
 
         const userPk = generatePK(userId);
@@ -96,6 +98,12 @@ export class StatsDashboardAggregator {
             result.categoryStreak = categoryStats?.currentStreak ?? 0;
             result.categoryLongestStreak = categoryStats?.longestStreak ?? 0;
             result.categoryTotalCompletions = categoryStats?.totalCompletions ?? 0;
+        }
+
+        if (habitId) {
+            const habitSk = generateSK("HABIT", habitId, "");
+            const habitStats = await this.deps.repository.get(userPk, habitSk);
+            result.habitStreak = habitStats?.currentStreak ?? 0;
         }
 
         return result;

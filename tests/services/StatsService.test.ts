@@ -54,15 +54,27 @@ vi.mock("../../src/services/TodoService.js", () => ({
     })),
 }));
 
-vi.mock("../../src/utils/util.js", () => ({
-    todayISO: (...args: unknown[]) => mockTodayISO(...args),
-    addDays: vi.fn((date: string, delta: number) => {
+vi.mock("../../src/utils/util.js", () => {
+    const addDays = (date: string, delta: number): string => {
         const [y, m, d] = date.split("-").map(Number);
         const next = new Date(y, m - 1, d);
         next.setDate(next.getDate() + delta);
         return next.toISOString().slice(0, 10);
-    }),
-}));
+    };
+    return {
+        todayISO: (...args: unknown[]) => mockTodayISO(...args),
+        addDays,
+        datesRange: (startDate: string, endDate: string): string[] => {
+            const dates: string[] = [];
+            let d = startDate;
+            while (d <= endDate) {
+                dates.push(d);
+                d = addDays(d, 1);
+            }
+            return dates;
+        },
+    };
+});
 
 const { mockContainerResolve } = vi.hoisted(() => ({
     mockContainerResolve: vi.fn(),

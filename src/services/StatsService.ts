@@ -7,11 +7,17 @@ import { todayISO } from "../utils/util.js";
 import { HabitStatsUpdater } from "./stats/HabitStatsUpdater.js";
 import { CategoryStatsUpdater } from "./stats/CategoryStatsUpdater.js";
 import { UserStatsUpdater } from "./stats/UserStatsUpdater.js";
+import {
+    StatsDashboardAggregator,
+    type StatsDashboardData,
+} from "./stats/StatsDashboardAggregator.js";
 import { generatePK, generateSK } from "./stats/StatsKeyGenerator.js";
 import { HabitService } from "./HabitService.js";
 import { TodoService } from "./TodoService.js";
 import { TodoRepository } from "../repositories/TodoRepository.js";
 import { container } from "../container.js";
+
+export type { StatsDashboardData } from "./stats/StatsDashboardAggregator.js";
 
 export interface UpdateStatsOnStatusChangeParams {
     userId: string;
@@ -72,6 +78,16 @@ export class StatsService {
             habitService: this.habitService,
             getTodoListByDate: (userId, date) => this.todoService.getTodoListByDate(userId, date),
             getHabitStats: (params) => this.getHabitStats(params),
+        });
+    }
+
+    private get dashboardAggregator(): StatsDashboardAggregator {
+        return new StatsDashboardAggregator({
+            repository: this.repository,
+            todoRepository: this.todoRepository,
+            habitService: this.habitService,
+            getTodoListByDate: (userId, date, categoryId) =>
+                this.todoService.getTodoListByDate(userId, date, categoryId),
         });
     }
 
@@ -219,6 +235,15 @@ export class StatsService {
     async getGlobalStreak(userId: string): Promise<number> {
         const stats = await this.repository.get(generatePK(userId), generateSK("USER", "", ""));
         return stats?.currentStreak ?? 0;
+    }
+
+    async getDashboardData(
+        userId: string,
+        month: string,
+        categoryId?: string,
+        selectedDate?: string
+    ): Promise<StatsDashboardData> {
+        return this.dashboardAggregator.getData(userId, month, categoryId, selectedDate);
     }
 
     async getHabitStats(params: GetHabitStatsParams): Promise<Stats> {

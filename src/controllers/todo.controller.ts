@@ -19,9 +19,8 @@ const getTodoListByDate = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
         const userId = getUserId(event);
         const date = event.queryStringParameters?.date || "";
 
-        logger.info("Todo listByDate", { userId, date });
         const todoList = await getTodoService().getTodoListByDate(userId, date);
-        logger.info("Todo listByDate result", { userId, date, count: todoList.length });
+
         return success(todoList);
     });
 
@@ -32,7 +31,6 @@ const createOrUpdateTodo = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
         const userId = getUserId(event);
         const { body, pathParameters } = (event as APIGatewayProxyEvent & { validated: { body: { date: string; status: string; progressValue?: number; notes?: string }; pathParameters: { habitId: string } } }).validated;
 
-        logger.info("Todo createOrUpdate", { userId, habitId: pathParameters.habitId, date: body.date, status: body.status });
         const updateParams: UpdateStatusParams = {
             userId,
             habitId: pathParameters.habitId,
@@ -57,9 +55,8 @@ const getDailySummary = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
             throw new BadRequestError("startDate and endDate query parameters are required");
         }
 
-        logger.info("Todo dailySummary", { userId, startDate, endDate });
         const dailySummary = await getTodoService().getDailySummary(userId, startDate, endDate);
-        logger.info("Todo dailySummary result", { userId, dayCount: dailySummary.length });
+
         return success(dailySummary);
     });
 
@@ -70,8 +67,8 @@ const updateTodoNotes = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
         const userId = getUserId(event);
         const { body, pathParameters } = (event as APIGatewayProxyEvent & { validated: { body: { date: string; notes: string }; pathParameters: { habitId: string } } }).validated;
 
-        logger.info("Todo updateNotes", { userId, habitId: pathParameters.habitId, date: body.date });
         await getTodoService().updateNotes(userId, pathParameters.habitId, body.date, body.notes);
+        
         return noContent();
     });
 

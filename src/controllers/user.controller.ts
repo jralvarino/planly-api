@@ -13,8 +13,9 @@ const getProfile = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(authMiddleware())
     .handler(async (event) => {
         const userId = getUserId(event);
-        logger.info("User getProfile", { userId });
+
         const profile = await getUserService().getProfile(userId);
+        
         return success(profile);
     });
 

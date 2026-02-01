@@ -16,9 +16,8 @@ const createHabit = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
         const userId = getUserId(event);
         const body = ((event.body ?? {}) as Record<string, unknown>) || {};
 
-        logger.info("Habit create", { userId, title: body.title });
         const habit = await getHabitService().create(userId, body);
-        logger.info("Habit created", { userId, habitId: habit.id });
+
         return created(habit);
     });
 
@@ -30,8 +29,8 @@ const updateHabit = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
         const id = event.pathParameters!.id!;
         const body = ((event.body ?? {}) as Record<string, unknown>) || {};
 
-        logger.info("Habit update", { userId, habitId: id });
         const habit = await getHabitService().update(userId, id, body);
+
         return success(habit);
     });
 
@@ -41,9 +40,8 @@ const getAllHabits = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .handler(async (event) => {
         const userId = getUserId(event);
 
-        logger.info("Habit list", { userId });
         const habits = await getHabitService().getAllHabits(userId);
-        logger.info("Habit list result", { userId, count: habits.length });
+
         return success(habits);
     });
 
@@ -54,8 +52,8 @@ const getHabitById = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
         const userId = getUserId(event);
         const id = event.pathParameters!.id!;
 
-        logger.info("Habit getById", { userId, habitId: id });
         const habit = await getHabitService().getHabitById(userId, id);
+
         return success(habit);
     });
 
@@ -66,8 +64,8 @@ const deleteHabit = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
         const userId = getUserId(event);
         const id = event.pathParameters!.id!;
 
-        logger.info("Habit delete", { userId, habitId: id });
         await getHabitService().delete(userId, id);
+        
         return success({ message: "Habit deleted successfully" });
     });
 

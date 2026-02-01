@@ -7,7 +7,7 @@ import { logger } from "../../utils/logger.js";
 import { computeFullStreakStats } from "./StreakCalculator.js";
 import { getCompletedUserDatesFromTodoList } from "./completedDates.js";
 import { generatePK, generateSK } from "./StatsKeyGenerator.js";
-import { datesRange } from "./dateUtils.js";
+import { datesRange } from "../../utils/util.js";
 import type { Stats } from "../../models/Stats.js";
 import type { TodoList } from "../../models/TodoList.js";
 

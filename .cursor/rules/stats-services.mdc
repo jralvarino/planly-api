@@ -1,0 +1,50 @@
+---
+description: Stats service architecture and dashboard aggregation patterns
+globs: src/services/**/*.ts
+alwaysApply: false
+---
+
+# Stats Services Architecture
+
+## StatsService as Facade
+
+`StatsService` is a **thin facade** that delegates to specialized modules in `src/services/stats/`:
+
+- **Write/update logic** → `HabitStatsUpdater`, `CategoryStatsUpdater`, `UserStatsUpdater`
+- **Dashboard aggregation** → `StatsDashboardAggregator`
+
+StatsService should not contain orchestration logic; it wires dependencies and delegates.
+
+## Dashboard Aggregation
+
+Dashboard aggregation logic (e.g., `getDashboardData`) belongs in dedicated modules under `src/services/stats/`, not in StatsService:
+
+- **StatsDashboardAggregator** – aggregates completed dates, streaks, and habits for the stats dashboard screen
+- Receives dependencies via constructor (`repository`, `todoRepository`, `habitService`, `getTodoListByDate`)
+- StatsService instantiates it with a getter (lazy, same pattern as updaters) and delegates `getDashboardData` calls
+
+## Pattern
+
+```typescript
+// StatsService - thin delegation
+private get dashboardAggregator(): StatsDashboardAggregator {
+  return new StatsDashboardAggregator({ ...deps });
+}
+async getDashboardData(...) {
+  return this.dashboardAggregator.getData(...);
+}
+```
+
+Do not add new aggregation or orchestration logic directly to StatsService; create a dedicated class in `stats/` and delegate.
+
+## TODO list per date: use getTodoListByDate (or equivalent)
+
+When computing **completed dates**, **daily stats**, or any logic that needs "all TODOs for a given date", **always** use:
+
+- **`getTodoListByDate(userId, date, categoryId?)`** (from TodoService), or
+- An equivalent that returns the **full list** of habits that apply to that date, with status from DB or implicit PENDING.
+
+**Do not** base "completed" or date-level logic only on **`todoRepository.findAllByDateRange`** (or raw Todo rows). Rows in the DB exist only when the user has created/updated a todo for that (date, habit). Habits that apply to the date but have no row are implicitly PENDING; if you ignore them, a day with only one completed habit and no rows for the others would be wrongly marked as "completed".
+
+- **Correct:** For each date, call `getTodoListByDate` (or build the same list from habits + todo map). A date is completed only when every item in that list is DONE.
+- **Wrong:** Group `findAllByDateRange` results by date and treat "all rows for that date are DONE" as completed (that undercounts habits and can mark partial days as complete).

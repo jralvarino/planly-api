@@ -15,7 +15,6 @@ const login = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .handler(async (event) => {
         const { body } = (event as APIGatewayProxyEvent & { validated: { body: { user: string; password: string } } }).validated;
 
-        logger.info("Auth login request", { user: body.user });
         const token = await getAuthService().login(body.user, body.password);
 
         return success({ token });

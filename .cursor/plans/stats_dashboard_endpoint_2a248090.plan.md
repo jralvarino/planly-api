@@ -7,6 +7,16 @@ isProject: false
 
 # Plano: Endpoint de Estatísticas para a Tela de Dashboard
 
+## Arquitetura Atual (pós-refatoração)
+
+O projeto usa:
+
+- **Tsyringe**: serviços e repositórios são `@injectable()`, resolvidos via `container.resolve(Service)`.
+- **Zod**: validação via `zodValidator(schema)` no Middy; schemas em `src/schemas/*.schemas.ts`.
+- **Powertools**: `logger` para logs estruturados (INFO/WARN/DEBUG); `tracer` para tracing.
+- **Controller pattern**: `getUserId(event)`, `getStatsService = () => container.resolve(StatsService)`, `logger.info(...)` para operações.
+- **Handlers**: Todo handler inclui stats routes (`[...todoRoutes, ...statsRoutes]`); `/stats/*` usa `TodoLambdaFunction` no OpenAPI.
+
 ## Contexto
 
 A tela de estatísticas do frontend precisa de:
@@ -124,7 +134,7 @@ Criar um único endpoint `GET /stats/dashboard` que retorne tudo em uma chamada,
 | Dado do dashboard                                               | O que reutilizar                                                                                                                                                                                                                                                                                                                              |
 | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | completedDates                                                  | [TodoRepository.findAllByDateRange](src/repositories/TodoRepository.ts) (1 chamada para o mês) + [getCompletedUserDatesFromTodoList](src/services/stats/completedDates.ts) / [getCompletedCategoryDatesFromTodoList](src/services/stats/completedDates.ts) + [HabitService.getAllHabits](src/services/HabitService.ts) (só quando categoryId) |
-| habitsForSelectedDate                                           | [TodoService.getTodoListByDate](src/services/TodoService.ts)(userId, date, categoryId?) – estender com parâmetro opcional categoryId                                                                                                                                                                                                          |
+| habitsForSelectedDate                                           | [TodoService.getTodoListByDate](src/services/TodoService.ts)(userId, date, categoryId?) – estender com parâmetro opcional `categoryId`                                                                                                                                                                                                        |
 | globalStreak                                                    | [StatsService.getGlobalStreak](src/services/StatsService.ts)                                                                                                                                                                                                                                                                                  |
 | globalLongestStreak, globalTotalCompletions, lastCompletedDate  | Stats USER: repository.get(PK, SK_USER) – ler longestStreak, totalCompletions, lastCompletedDate (retornar 0 ou null se não existir)                                                                                                                                                                                                          |
 | categoryStreak, categoryLongestStreak, categoryTotalCompletions | Stats CATEGORY: getHabitStats(scope: "CATEGORY", habitId: "", categoryId) ou novo getCategoryStreak / getCategoryStats que retorne currentStreak, longestStreak, totalCompletions (0 quando stats não existir)                                                                                                                                |
@@ -138,20 +148,22 @@ Não usar getDailySummary para completedDates (evitar N chamadas); usar 1x findA
 
 Arquivo: [src/services/StatsService.ts](src/services/StatsService.ts)
 
+- O `StatsService` é `@injectable()` e usa `repository`, `todoRepository`, `habitService`; para `getTodoListByDate` usa o getter lazy `todoService` (resolução circular).
 - **Parâmetros:** `userId`, `month` (YYYY-MM), `categoryId?`, `selectedDate?`.
 - **completedDates:** firstDay = `${month}-01`; último dia do mês (ex.: `new Date(y, m, 0).toISOString().slice(0, 10)`); `todos = await this.todoRepository.findAllByDateRange(userId, firstDay, lastDay)`; se categoryId: obter habitIds da categoria via habitService.getAllHabits + filter, depois `getCompletedCategoryDatesFromTodoList(todos, habitIds)`; senão `getCompletedUserDatesFromTodoList(todos)`; retornar `Array.from(set)`.
 - **habitsForSelectedDate:** Se selectedDate: `await this.todoService.getTodoListByDate(userId, selectedDate, categoryId)`; senão undefined.
 - **Global:** Chamar repository.get para Stats USER; preencher globalStreak, globalLongestStreak, globalTotalCompletions, lastCompletedDate (0 ou null quando não existir).
 - **Category:** Se categoryId: repository.get para Stats CATEGORY; preencher categoryStreak, categoryLongestStreak, categoryTotalCompletions (0 quando não existir).
 - **Resumo mês:** monthCompletionCount = completedDates.length; daysInMonth = dias do mês; monthCompletionRate = count / daysInMonth.
-- Importar getCompletedUserDatesFromTodoList e getCompletedCategoryDatesFromTodoList de [src/services/stats/completedDates.ts](src/services/stats/completedDates.ts).
+- Importar `getCompletedUserDatesFromTodoList` e `getCompletedCategoryDatesFromTodoList` de [src/services/stats/completedDates.ts](src/services/stats/completedDates.ts).
+- Adicionar logs: `logger.info("Stats getDashboardData", {...})` no início e, se relevante, em decisões importantes.
 
 ### 2. `TodoService` – suporte a filtro por categoria
 
 Arquivo: [src/services/TodoService.ts](src/services/TodoService.ts)
 
 - Assinatura: `getTodoListByDate(userId: string, date: string, categoryId?: string): Promise<TodoList[]>`.
-- Após obter `elegibleHabits`, se categoryId informado: `elegibleHabits = elegibleHabits.filter((h) => h.categoryId === categoryId)`.
+- Após obter `eligibleHabits`, se `categoryId` informado: `eligibleHabits = eligibleHabits.filter((h) => h.categoryId === categoryId)`.
 - Resto da lógica inalterado.
 
 ### 3. `StatsService` – métodos para categoria (opcional)
@@ -159,19 +171,31 @@ Arquivo: [src/services/TodoService.ts](src/services/TodoService.ts)
 - `getCategoryStreak(userId, categoryId): Promise<number>` – repository.get(USER scope CATEGORY); retornar `stats?.currentStreak ?? 0`.
 - Ou, em getDashboardData, ler Stats CATEGORY uma vez e preencher categoryStreak, categoryLongestStreak, categoryTotalCompletions.
 
-### 4. Controller e rota
+### 4. Schema Zod para validação
+
+Arquivo: [src/schemas/stats.schemas.ts](src/schemas/stats.schemas.ts) (novo)
+
+- Criar `getDashboardSchema` com `queryStringParameters`:
+  - `month`: `z.string().regex(/^\d{4}-\d{2}$/)` (obrigatório)
+  - `categoryId`: `z.string().optional()`
+  - `selectedDate`: `z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()`
+- Exportar tipo `GetDashboardInput` via `z.infer<typeof getDashboardSchema>`.
+
+### 5. Controller e rota
 
 Arquivo: [src/controllers/stats.controller.ts](src/controllers/stats.controller.ts)
 
-- Nova rota `GET /stats/dashboard`.
-- Extrair `month`, `categoryId`, `selectedDate` de `queryStringParameters`.
-- Validar `month` (obrigatório, formato YYYY-MM).
-- Chamar `StatsService.getDashboardData` e retornar o JSON descrito acima.
+- Nova rota `GET /stats/dashboard` com `authMiddleware()` e `zodValidator(getDashboardSchema)`.
+- Extrair `month`, `categoryId`, `selectedDate` de `event.validated.queryStringParameters`.
+- Obter `userId` via `getUserId(event)`.
+- Resolver `StatsService` via `container.resolve(StatsService)` (padrão existente: `getStatsService()`).
+- Chamar `getStatsService().getDashboardData(userId, month, categoryId, selectedDate)` e retornar o JSON descrito acima.
+- Adicionar `logger.info("Stats getDashboard", { userId, month, categoryId, selectedDate })` e log de resultado (ex.: `logger.info("Stats getDashboard result", { userId, monthCompletionCount })`).
 
-### 5. OpenAPI e deployment
+### 6. OpenAPI e deployment
 
-- [deployment/openapi.yaml](deployment/openapi.yaml): documentar `GET /stats/dashboard` com parâmetros e schema de resposta (todos os campos descritos).
-- A rota de stats usa o TodoLambdaFunction; nenhuma alteração no template.yaml é necessária.
+- [deployment/openapi.yaml](deployment/openapi.yaml): documentar `GET /stats/dashboard` com parâmetros (`month`, `categoryId`, `selectedDate`) e schema de resposta (todos os campos descritos).
+- A rota de stats usa o `TodoLambdaFunction` (já integrado ao handler de todo); nenhuma alteração no `template.yaml` é necessária.
 
 ## Fluxo de Dados
 

@@ -26,7 +26,8 @@
         "lint": "eslint src --ext .ts",
         "lint:fix": "eslint src --ext .ts --fix",
         "format": "prettier --write \"src/**/*.ts\"",
-        "format:check": "prettier --check \"src/**/*.ts\""
+        "format:check": "prettier --check \"src/**/*.ts\"",
+        "swagger": "npx --yes serve deployment -p 8080"
     },
     "keywords": [],
     "author": "",

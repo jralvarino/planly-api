@@ -7,7 +7,7 @@
 export { computeFullStreakStats, computeStreakUpTo } from "./StreakCalculator.js";
 export type { StreakResult } from "./StreakCalculator.js";
 export { generatePK, generateSK, getEndDate } from "./StatsKeyGenerator.js";
-export { datesRange } from "./dateUtils.js";
+export { datesRange } from "../../utils/util.js";
 export {
     getCompletedDatesFromTodoList,
     getCompletedCategoryDatesFromTodoList,
@@ -19,3 +19,5 @@ export { CategoryStatsUpdater } from "./CategoryStatsUpdater.js";
 export type { CategoryStatsUpdaterParams, UpdateCategoryStatsIncrementalParams } from "./CategoryStatsUpdater.js";
 export { UserStatsUpdater } from "./UserStatsUpdater.js";
 export type { UserStatsUpdaterParams, UpdateUserStatsIncrementalParams } from "./UserStatsUpdater.js";
+export { StatsDashboardAggregator } from "./StatsDashboardAggregator.js";
+export type { StatsDashboardData, StatsDashboardAggregatorDeps } from "./StatsDashboardAggregator.js";

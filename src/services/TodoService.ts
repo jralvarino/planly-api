@@ -6,7 +6,7 @@ import { Todo } from "../models/Todo.js";
 import { TodoRepository } from "../repositories/TodoRepository.js";
 import { NotFoundError } from "../errors/PlanlyError.js";
 import { parseDayOfWeek } from "../utils/util.js";
-import { datesRange } from "./stats/dateUtils.js";
+import { datesRange } from "../utils/util.js";
 import { TODO_STATUS, TODO_STATUS_ORDER, TODO_PERIOD_ORDER, TodoStatus } from "../constants/todo.constants.js";
 import { StatsService } from "./StatsService.js";
 import { logger } from "../utils/logger.js";
@@ -72,13 +72,15 @@ export class TodoService {
         return todo;
     }
 
-    async getTodoListByDate(userId: string, date: string): Promise<TodoList[]> {
-        // Fetch all user habits for the given date
+    async getTodoListByDate(userId: string, date: string, categoryId?: string): Promise<TodoList[]> {
         const habits = await this.habitRepository.findAllByDate(userId, date);
 
         const targetDate = new Date(date);
 
-        const eligibleHabits = habits.filter((habit) => isValidForTargetDate(habit, targetDate));
+        let eligibleHabits = habits.filter((habit) => isValidForTargetDate(habit, targetDate));
+        if (categoryId) {
+            eligibleHabits = eligibleHabits.filter((h) => h.categoryId === categoryId);
+        }
 
         const todoList: TodoList[] = await Promise.all(
             eligibleHabits.map(async (habit) => {

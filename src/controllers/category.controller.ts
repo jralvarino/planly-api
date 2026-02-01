@@ -23,9 +23,8 @@ const createCategory = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
         const userId = getUserId(event);
         const { body } = (event as APIGatewayProxyEvent & { validated: { body: { name: string } } }).validated;
 
-        logger.info("Category create", { userId, name: body.name });
         const category = await getCategoryService().create(userId, body.name);
-        logger.info("Category created", { userId, categoryId: category.id });
+
         return created({ category });
     });
 
@@ -36,8 +35,8 @@ const updateCategory = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
         const userId = getUserId(event);
         const { body, pathParameters } = (event as APIGatewayProxyEvent & { validated: { body: { name: string }; pathParameters: { id: string } } }).validated;
 
-        logger.info("Category update", { userId, categoryId: pathParameters.id });
         const category = await getCategoryService().update(userId, pathParameters.id, body.name);
+    
         return success({ category });
     });
 
@@ -46,9 +45,8 @@ const getAllCategories = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .handler(async (event) => {
         const userId = getUserId(event);
 
-        logger.info("Category list", { userId });
         const categories = await getCategoryService().getAllCategories(userId);
-        logger.info("Category list result", { userId, count: categories.length });
+
         return success(Object.values(categories));
     });
 
@@ -59,8 +57,8 @@ const getCategoryById = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
         const userId = getUserId(event);
         const { pathParameters } = (event as APIGatewayProxyEvent & { validated: { pathParameters: { id: string } } }).validated;
 
-        logger.info("Category getById", { userId, categoryId: pathParameters.id });
         const category = await getCategoryService().getCategoryById(userId, pathParameters.id);
+
         return success(category);
     });
 
@@ -71,8 +69,8 @@ const deleteCategory = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
         const userId = getUserId(event);
         const { pathParameters } = (event as APIGatewayProxyEvent & { validated: { pathParameters: { id: string } } }).validated;
 
-        logger.info("Category delete", { userId, categoryId: pathParameters.id });
         await getCategoryService().delete(userId, pathParameters.id);
+        
         return success({ message: "Category deleted successfully" });
     });
 

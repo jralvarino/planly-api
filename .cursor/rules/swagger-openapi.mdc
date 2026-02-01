@@ -1,0 +1,27 @@
+---
+description: Keep OpenAPI/Swagger in sync with models, request and response
+globs:
+  - src/models/**/*.ts
+  - src/schemas/**/*.ts
+  - src/controllers/**/*.ts
+alwaysApply: false
+---
+
+# OpenAPI / Swagger sync
+
+Whenever you change **models**, **request** or **response** contracts, update the Swagger/OpenAPI spec so it stays the single source of truth for the API.
+
+## When to update `deployment/openapi.yaml`
+
+- **Models** (`src/models/`): add or change fields in `User`, `Category`, `Habit`, `Todo`, etc. → update the corresponding `components/schemas` and any path that returns that type.
+- **Request schemas** (`src/schemas/`): add/remove required fields, new endpoints, or validation (enums, patterns) → update the request body or query/path parameters and the relevant `components/schemas` (e.g. `CreateCategoryRequest`, `UpdateTodoStatusRequest`).
+- **Controllers** (`src/controllers/`): new endpoints, changed response shape, or new status codes → update the path, operationId, responses and optionally `components/schemas`.
+
+## What to keep in sync
+
+1. **Paths and methods** – must match the routes used in the handlers (e.g. `/categories/{id}`, not `/categories/{name}`).
+2. **`components/schemas`** – request/response types used in the API; reuse via `$ref` in paths.
+3. **Enums and patterns** – e.g. todo `status`: `done` | `pending` | `skipped`; date format `YYYY-MM-DD`; month `YYYY-MM`.
+4. **Responses** – document success (200/201/204) and errors (400, 401, 404, 409, 500) with a body schema (e.g. `Error`) where applicable.
+
+After editing models, schemas or controllers, check and update `deployment/openapi.yaml` in the same change set.

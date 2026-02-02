@@ -5,11 +5,13 @@ import { TODO_STATUS } from "../../constants/todo.constants.js";
 import { addDays, todayISO } from "../../utils/util.js";
 import { logger } from "../../utils/logger.js";
 import { computeFullStreakStats } from "./StreakCalculator.js";
-import { getCompletedCategoryDatesFromTodoList } from "./completedDates.js";
-import { generatePK, generateSK, getEndDate } from "./StatsKeyGenerator.js";
+import { generatePK, generateSK } from "./StatsKeyGenerator.js";
 import { datesRange } from "../../utils/util.js";
 import type { Stats } from "../../models/Stats.js";
 import type { TodoList } from "../../models/TodoList.js";
+import type { Todo } from "../../models/Todo.js";
+import type { Habit } from "../../models/Habit.js";
+import { isValidForTargetDate } from "../TodoService.js";
 
 export interface GetHabitStatsFn {
     (params: { scope: "CATEGORY"; userId: string; habitId: string; categoryId?: string }): Promise<Stats>;
@@ -101,7 +103,7 @@ export class CategoryStatsUpdater {
     }
 
     async recalculate(userId: string, categoryId: string): Promise<void> {
-        const { repository, todoRepository, habitService, getHabitStats } = this.params;
+        const { repository, todoRepository } = this.params;
 
         const habits = await this.getHabitsByCategory(userId, categoryId);
         if (habits.length === 0) {
@@ -112,26 +114,42 @@ export class CategoryStatsUpdater {
             return;
         }
 
+        const activeHabits = habits.filter((h) => h.active);
+        if (activeHabits.length === 0) {
+            logger.info("Category stats recalculate skipped: no active habits in category", {
+                userId,
+                categoryId,
+            });
+            return;
+        }
+
         const today = todayISO();
-        const startDate = habits.reduce((min, h) => (h.start_date < min ? h.start_date : min), habits[0].start_date);
-        const endDate = getEndDate(habits[0]);
-        const todoList = await todoRepository.findAllByDateRange(userId, startDate, endDate);
-        const habitIds = new Set(habits.map((h) => h.id));
-        const completedDates = getCompletedCategoryDatesFromTodoList(todoList, habitIds);
-        const scheduledAsc = datesRange(startDate, today);
+        const startDate = activeHabits.reduce(
+            (min, h) => (h.start_date < min ? h.start_date : min),
+            activeHabits[0].start_date
+        );
+        const allDates = datesRange(startDate.slice(0, 10), today);
+
+        const todos = await todoRepository.findAllByDateRange(userId, startDate, today);
+        const todosByDateAndHabit = this.buildTodoMap(todos);
+
+        const { completedDates, scheduledDates } = this.getCompletedAndScheduledDatesForCategory(
+            allDates,
+            activeHabits,
+            todosByDateAndHabit
+        );
 
         logger.debug("Category recalculate inputs", {
             userId,
             categoryId,
-            habitsCount: habits.length,
+            habitsCount: activeHabits.length,
             startDate,
-            endDate,
             completedDatesCount: completedDates.size,
-            scheduledDaysCount: scheduledAsc.length,
+            scheduledDaysCount: scheduledDates.length,
         });
 
         const { currentStreak, longestStreak, lastCompletedDate } = computeFullStreakStats(
-            scheduledAsc,
+            scheduledDates,
             completedDates,
             today
         );
@@ -143,6 +161,66 @@ export class CategoryStatsUpdater {
             totalCompletions: completedDates.size,
         });
         logger.info(`Category stats updated for ${categoryId}`, { currentStreak, longestStreak });
+    }
+
+    private buildTodoMap(todos: Todo[]): Map<string, Map<string, Todo>> {
+        const map = new Map<string, Map<string, Todo>>();
+        for (const todo of todos) {
+            if (!map.has(todo.date)) {
+                map.set(todo.date, new Map());
+            }
+            map.get(todo.date)!.set(todo.habitId, todo);
+        }
+        return map;
+    }
+
+    /**
+     * Returns completed dates and scheduled dates for the category. A date is "scheduled" if at least
+     * one habit in the category was scheduled for it. A date is "completed" only if ALL scheduled
+     * habits in the category have a DONE TODO.
+     */
+    private getCompletedAndScheduledDatesForCategory(
+        dates: string[],
+        activeHabits: Habit[],
+        todoMap: Map<string, Map<string, Todo>>
+    ): { completedDates: Set<string>; scheduledDates: string[] } {
+        const completed = new Set<string>();
+        const scheduled: string[] = [];
+
+        for (const dateStr of dates) {
+            const targetDate = new Date(dateStr);
+            const scheduledHabits = activeHabits.filter((h) => {
+                const hStart = h.start_date.slice(0, 10);
+                if (hStart > dateStr) return false;
+                if (h.end_date) {
+                    const hEnd = h.end_date.slice(0, 10);
+                    if (hEnd < dateStr) return false;
+                }
+                return isValidForTargetDate(h, targetDate);
+            });
+
+            if (scheduledHabits.length === 0) {
+                continue;
+            }
+
+            scheduled.push(dateStr);
+
+            const todosForDate = todoMap.get(dateStr);
+            if (!todosForDate) {
+                continue;
+            }
+
+            const allDone = scheduledHabits.every((habit) => {
+                const todo = todosForDate.get(habit.id);
+                return todo && todo.status === TODO_STATUS.DONE;
+            });
+
+            if (allDone) {
+                completed.add(dateStr);
+            }
+        }
+
+        return { completedDates: completed, scheduledDates: scheduled };
     }
 
     private async getHabitsByCategory(userId: string, categoryId: string) {

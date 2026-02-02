@@ -53,6 +53,7 @@ export class TodoService {
             progress: getProgressValue(existing, status, habitTargetValue, progressValue),
             target: habitTargetValue,
             notes: existing?.notes || "",
+            completedAt: status === TODO_STATUS.DONE ? now : undefined,
             createdAt: existing?.createdAt || now,
             updatedAt: now,
         };
@@ -109,6 +110,7 @@ export class TodoService {
                     status: todo?.status || TODO_STATUS.PENDING,
                     progressValue: todo?.progress?.toString() || "0",
                     notes: todo?.notes || "",
+                    completedAt: todo?.completedAt,
                     streak: currentStreak.currentStreak,
                     updatedAt: todo?.updatedAt || habit.updatedAt,
                 };
@@ -122,7 +124,12 @@ export class TodoService {
             if (statusDiff !== 0) {
                 return statusDiff;
             }
-            // If status is equal, sort by period
+            // Same status: for done, order by completedAt; otherwise by period
+            if (a.status === TODO_STATUS.DONE && b.status === TODO_STATUS.DONE) {
+                const atA = a.completedAt ?? "";
+                const atB = b.completedAt ?? "";
+                return atA.localeCompare(atB);
+            }
             const periodDiff = (TODO_PERIOD_ORDER[a.period] || 999) - (TODO_PERIOD_ORDER[b.period] || 999);
             return periodDiff;
         });

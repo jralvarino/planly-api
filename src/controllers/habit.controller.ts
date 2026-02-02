@@ -39,8 +39,9 @@ const getAllHabits = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     //.use(zodValidator(getHabitsSchema))
     .handler(async (event) => {
         const userId = getUserId(event);
+        const categoryId = event.queryStringParameters?.categoryId;
 
-        const habits = await getHabitService().getAllHabits(userId);
+        const habits = await getHabitService().getAllHabits(userId, categoryId);
 
         return success(habits);
     });

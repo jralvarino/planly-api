@@ -10,6 +10,7 @@ export interface Todo {
     progress: number;
     target: number;
     notes?: string;
+    completedAt?: string; // ISO timestamp when status became DONE
     createdAt: string;
     updatedAt: string;
 }

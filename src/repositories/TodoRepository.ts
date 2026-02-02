@@ -25,6 +25,7 @@ export class TodoRepository {
                     progress: todo.progress,
                     target: todo.target,
                     notes: todo.notes,
+                    ...(todo.completedAt != null && { completedAt: todo.completedAt }),
                     createdAt: todo.createdAt,
                     updatedAt: new Date().toISOString(),
                 },

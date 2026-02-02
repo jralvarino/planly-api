@@ -123,6 +123,25 @@ components:
             properties:
                 date: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$", example: "2024-01-15" }
                 notes: { type: string }
+        TodoListItem:
+            type: object
+            description: Habit with todo metadata for a specific date
+            properties:
+                id: { type: string }
+                title: { type: string }
+                color: { type: string }
+                emoji: { type: string }
+                unit: { type: string }
+                targetValue: { type: string }
+                categoryId: { type: string }
+                period: { type: string }
+                active: { type: boolean }
+                status: { type: string, enum: [done, pending, skipped] }
+                progressValue: { type: string }
+                notes: { type: string }
+                completedAt: { type: string, format: date-time, description: ISO timestamp when habit was marked done }
+                streak: { type: integer }
+                updatedAt: { type: string }
         DailySummaryItem:
             type: object
             properties:
@@ -156,7 +175,7 @@ components:
                 monthCompletionCount: { type: number }
                 monthCompletionRate: { type: number }
                 daysInMonth: { type: number }
-                habitsForSelectedDate: { type: array, items: { type: object } }
+                habitsForSelectedDate: { type: array, items: { $ref: "#/components/schemas/TodoListItem" } }
                 categoryStreak: { type: number }
                 categoryLongestStreak: { type: number }
                 categoryTotalCompletions: { type: number }
@@ -580,6 +599,13 @@ paths:
             operationId: getHabits
             security:
                 - bearerAuth: []
+            parameters:
+                - name: categoryId
+                  in: query
+                  required: false
+                  description: Filter habits by category ID
+                  schema:
+                      type: string
             responses:
                 "200":
                     description: List of habits for the user
@@ -647,7 +673,7 @@ paths:
                         application/json:
                             schema:
                                 type: array
-                                items: { $ref: "#/components/schemas/Habit" }
+                                items: { $ref: "#/components/schemas/TodoListItem" }
                 "401":
                     description: Unauthorized
                     content:

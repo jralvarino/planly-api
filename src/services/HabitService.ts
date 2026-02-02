@@ -8,6 +8,7 @@ import { TodoRepository } from "../repositories/TodoRepository.js";
 import { isValidForTargetDate } from "./TodoService.js";
 import { container } from "../container.js";
 import { logger } from "../utils/logger.js";
+import { todayISO } from "../utils/util.js";
 
 @injectable()
 export class HabitService {
@@ -53,13 +54,23 @@ export class HabitService {
         await this.repository.create(habit);
         logger.debug("Habit created", { userId, habitId: id, categoryId: habit.categoryId });
 
-        this.statsService.createStats(userId, id, habit.categoryId);
+        await this.statsService.createStats(userId, id, habit.categoryId);
+
+        const startDateOnly = habit.start_date.slice(0, 10);
+        const today = todayISO();
+        if (startDateOnly <= today) {
+            await this.statsService.recalculateStatsOnHabitCreated(userId, id, habit.categoryId);
+        }
 
         return habit;
     }
 
-    async getAllHabits(userId: string): Promise<Habit[]> {
-        return await this.repository.findAllByUserId(userId);
+    async getAllHabits(userId: string, categoryId?: string): Promise<Habit[]> {
+        const habits = await this.repository.findAllByUserId(userId);
+        if (categoryId) {
+            return habits.filter((h) => h.categoryId === categoryId);
+        }
+        return habits;
     }
 
     async getHabitById(userId: string, id: string): Promise<Habit> {
@@ -94,11 +105,31 @@ export class HabitService {
         const updatedHabit: Habit = {
             ...existingHabit,
             ...habitData,
-            id: existingHabit.id, // Garantir que o id não seja alterado
-            userId: existingHabit.userId, // Garantir que o userId não seja alterado
+            id: existingHabit.id,
+            userId: existingHabit.userId,
         };
 
         await this.repository.update(updatedHabit);
+
+        const statsAffectingFields = [
+            "start_date",
+            "end_date",
+            "period_type",
+            "period_value",
+            "categoryId",
+        ] as const;
+        const hasStatsRelevantChange = statsAffectingFields.some(
+            (field) =>
+                String(existingHabit[field] ?? "") !== String(updatedHabit[field] ?? "")
+        );
+        if (hasStatsRelevantChange) {
+            await this.statsService.recalculateStatsOnHabitEdited(
+                userId,
+                id,
+                existingHabit.categoryId ?? "",
+                updatedHabit.categoryId ?? ""
+            );
+        }
 
         return updatedHabit;
     }

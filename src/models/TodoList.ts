@@ -13,5 +13,6 @@ export interface TodoList {
     status: TodoStatus;
     progressValue: string;
     notes: string;
+    completedAt?: string;
     updatedAt: string;
 }

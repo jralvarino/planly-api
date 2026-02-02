@@ -93,32 +93,58 @@ export class StatsService {
 
     async createStats(userId: string, habitId: string, categoryId: string): Promise<Stats[]> {
         const now = new Date().toISOString();
-        const scopes: StatsScope[] = ["HABIT", "CATEGORY", "USER"];
 
         logger.info("Creating stats for habit", { userId, habitId, categoryId });
 
-        const statsPromises = scopes.map(async (scope) => {
-            const stats: Stats = {
-                PK: generatePK(userId),
-                SK: generateSK(scope, habitId, categoryId),
-                habitId,
-                userId,
-                categoryId,
-                scope,
-                currentStreak: 0,
-                longestStreak: 0,
-                totalCompletions: 0,
-                createdAt: now,
-                updatedAt: now,
-            };
+        // HABIT: always create (unique per habit)
+        const habitStats: Stats = {
+            PK: generatePK(userId),
+            SK: generateSK("HABIT", habitId, categoryId),
+            habitId,
+            userId,
+            categoryId,
+            scope: "HABIT",
+            currentStreak: 0,
+            longestStreak: 0,
+            totalCompletions: 0,
+            createdAt: now,
+            updatedAt: now,
+        };
+        await this.repository.create(habitStats);
 
-            await this.repository.create(stats);
-            return stats;
-        });
+        // CATEGORY and USER: create only if not exists (do not overwrite existing streak data)
+        const categoryStats: Stats = {
+            PK: generatePK(userId),
+            SK: generateSK("CATEGORY", habitId, categoryId),
+            habitId,
+            userId,
+            categoryId,
+            scope: "CATEGORY",
+            currentStreak: 0,
+            longestStreak: 0,
+            totalCompletions: 0,
+            createdAt: now,
+            updatedAt: now,
+        };
+        await this.repository.createIfNotExists(categoryStats);
 
-        const created = await Promise.all(statsPromises);
-        logger.debug("Stats created", { userId, habitId, categoryId, scopes });
-        return created;
+        const userStats: Stats = {
+            PK: generatePK(userId),
+            SK: generateSK("USER", habitId, categoryId),
+            habitId,
+            userId,
+            categoryId,
+            scope: "USER",
+            currentStreak: 0,
+            longestStreak: 0,
+            totalCompletions: 0,
+            createdAt: now,
+            updatedAt: now,
+        };
+        await this.repository.createIfNotExists(userStats);
+
+        logger.debug("Stats created for habit", { userId, habitId, categoryId });
+        return [habitStats, categoryStats, userStats];
     }
 
     async updateStatsOnTodoStatusChange(params: UpdateStatsOnStatusChangeParams): Promise<void> {
@@ -221,9 +247,55 @@ export class StatsService {
         this.throwIfStatsUpdatesFailed(results, scopes, {
             userId,
             habitId,
-            date: "", // not used for midnight job
+            date: "",
             categoryId,
             mode: "midnight_recalculate",
+        });
+    }
+
+    /**
+     * Recalculates all stats when a new habit is created and its start_date affects dates up to today.
+     */
+    async recalculateStatsOnHabitCreated(userId: string, habitId: string, categoryId: string): Promise<void> {
+        const scopes = ["HABIT", "CATEGORY", "USER"] as const;
+        const results = await Promise.allSettled([
+            this.habitStatsUpdater.recalculate(userId, habitId),
+            this.categoryStatsUpdater.recalculate(userId, categoryId),
+            this.userStatsUpdater.recalculate(userId),
+        ]);
+        this.throwIfStatsUpdatesFailed(results, scopes, {
+            userId,
+            habitId,
+            date: "",
+            categoryId,
+            mode: "habit_created",
+        });
+    }
+
+    /**
+     * Recalculates stats when a habit is edited and stats-affecting fields changed.
+     */
+    async recalculateStatsOnHabitEdited(
+        userId: string,
+        habitId: string,
+        oldCategoryId: string,
+        newCategoryId: string
+    ): Promise<void> {
+        const categoriesToRecalc = Array.from(new Set([oldCategoryId, newCategoryId].filter(Boolean)));
+        const promises: Promise<void>[] = [
+            this.habitStatsUpdater.recalculate(userId, habitId),
+            this.userStatsUpdater.recalculate(userId),
+            ...categoriesToRecalc.map((catId) => this.categoryStatsUpdater.recalculate(userId, catId)),
+        ];
+
+        const scopes = ["HABIT", "USER", ...categoriesToRecalc.map((c) => `CATEGORY#${c}`)];
+        const results = await Promise.allSettled(promises);
+        this.throwIfStatsUpdatesFailed(results, scopes, {
+            userId,
+            habitId,
+            date: "",
+            categoryId: newCategoryId,
+            mode: "habit_edited",
         });
     }
 

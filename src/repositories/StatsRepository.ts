@@ -1,5 +1,6 @@
 import { injectable } from "tsyringe";
 import { GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { ConditionalCheckFailedException } from "@aws-sdk/client-dynamodb";
 import { ddb } from "../db/dynamoClient.js";
 import { Stats } from "../models/Stats.js";
 import { DYNAMO_TABLES } from "../db/dynamodb.tables.js";
@@ -22,6 +23,34 @@ export class StatsRepository {
                 Item: stats,
             })
         );
+    }
+
+    /**
+     * Creates stats record only if it does not exist (avoids overwriting existing data).
+     * Returns true if created, false if already existed.
+     */
+    async createIfNotExists(stats: Stats): Promise<boolean> {
+        logger.debug("DynamoDB put (conditional)", {
+            table: DYNAMO_TABLES.STATS,
+            key: { PK: stats.PK, SK: stats.SK },
+            scope: stats.scope,
+        });
+        try {
+            await ddb.send(
+                new PutCommand({
+                    TableName: DYNAMO_TABLES.STATS,
+                    Item: stats,
+                    ConditionExpression: "attribute_not_exists(SK)",
+                })
+            );
+            return true;
+        } catch (error) {
+            if (error instanceof ConditionalCheckFailedException) {
+                logger.debug("Stats already exists, skipped create", { PK: stats.PK, SK: stats.SK, scope: stats.scope });
+                return false;
+            }
+            throw error;
+        }
     }
 
     async updateStreakFields(PK: string, SK: string, fields: StatsStreakFields): Promise<void> {

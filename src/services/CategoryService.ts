@@ -1,13 +1,17 @@
 import { injectable } from "tsyringe";
 import { CategoryRepository } from "../repositories/CategoryRepository.js";
 import { Category } from "../models/Category.js";
+import { HabitService } from "./HabitService.js";
 import { ConflictError, NotFoundError } from "../errors/PlanlyError.js";
 import { v4 as uuidv4 } from "uuid";
 import { logger } from "../utils/logger.js";
 
 @injectable()
 export class CategoryService {
-    constructor(private readonly repository: CategoryRepository) {}
+    constructor(
+        private readonly repository: CategoryRepository,
+        private readonly habitService: HabitService
+    ) {}
 
     async create(userId: string, name: string): Promise<Category> {
         const existing = await this.repository.findByName(userId, name.toLowerCase());
@@ -103,6 +107,12 @@ export class CategoryService {
         if (category.userId != userId) {
             logger.warn("Category delete: user mismatch", { userId, categoryId: id });
             throw new NotFoundError(`Category ${id} could not be found for user ${userId}`);
+        }
+
+        const habitsInCategory = await this.habitService.getAllHabits(userId, id);
+        if (habitsInCategory.length > 0) {
+            logger.warn("Category delete: has habits associated", { userId, categoryId: id, count: habitsInCategory.length });
+            throw new ConflictError("Cannot delete category: it has habits associated");
         }
 
         await this.repository.delete(category.id);

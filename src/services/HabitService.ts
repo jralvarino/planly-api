@@ -147,7 +147,17 @@ export class HabitService {
             throw new NotFoundError(`Habit ${id} could not be found for user ${userId}`);
         }
 
+        const todos = await this.todoRepository.findAllByUserIdAndHabitId(userId, id);
+        for (const todo of todos) {
+            await this.todoRepository.delete(userId, todo.date, todo.habitId);
+        }
+        logger.debug("Todos deleted for habit", { userId, habitId: id, count: todos.length });
+
+        await this.statsService.deleteHabitStats(userId, id);
         await this.repository.delete(id);
+        
+        await this.statsService.recalculateStatsOnHabitDeleted(userId, habit.categoryId ?? "");
+        
         logger.debug("Habit deleted", { userId, habitId: id });
     }
 

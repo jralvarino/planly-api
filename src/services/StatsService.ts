@@ -299,6 +299,36 @@ export class StatsService {
         });
     }
 
+    /**
+     * Deletes the HABIT-scope stats record for a habit (used when habit is deleted).
+     */
+    async deleteHabitStats(userId: string, habitId: string): Promise<void> {
+        const pk = generatePK(userId);
+        const sk = generateSK("HABIT", habitId, "");
+        logger.info("Deleting habit stats", { userId, habitId });
+        await this.repository.delete(pk, sk);
+    }
+
+    /**
+     * Recalculates category and user stats after a habit (and its todos) have been removed.
+     */
+    async recalculateStatsOnHabitDeleted(userId: string, categoryId: string): Promise<void> {
+        const promises: Promise<void>[] = [this.userStatsUpdater.recalculate(userId)];
+        const scopes: string[] = ["USER"];
+        if (categoryId) {
+            promises.push(this.categoryStatsUpdater.recalculate(userId, categoryId));
+            scopes.push(`CATEGORY#${categoryId}`);
+        }
+        const results = await Promise.allSettled(promises);
+        this.throwIfStatsUpdatesFailed(results, scopes, {
+            userId,
+            habitId: "",
+            date: "",
+            categoryId,
+            mode: "habit_deleted",
+        });
+    }
+
     async getHabitStreak(userId: string, habitId: string): Promise<number> {
         const stats = await this.repository.get(generatePK(userId), generateSK("HABIT", habitId, ""));
         return stats?.currentStreak ?? 0;

@@ -1,5 +1,5 @@
 import { injectable } from "tsyringe";
-import { GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { GetCommand, PutCommand, UpdateCommand, DeleteCommand } from "@aws-sdk/lib-dynamodb";
 import { ConditionalCheckFailedException } from "@aws-sdk/client-dynamodb";
 import { ddb } from "../db/dynamoClient.js";
 import { Stats } from "../models/Stats.js";
@@ -91,5 +91,15 @@ export class StatsRepository {
         );
         logger.debug("DynamoDB get result", { table: DYNAMO_TABLES.STATS, PK, SK, found: !!result.Item });
         return (result.Item as Stats) || null;
+    }
+
+    async delete(PK: string, SK: string): Promise<void> {
+        logger.debug("DynamoDB delete", { table: DYNAMO_TABLES.STATS, key: { PK, SK } });
+        await ddb.send(
+            new DeleteCommand({
+                TableName: DYNAMO_TABLES.STATS,
+                Key: { PK, SK },
+            })
+        );
     }
 }

@@ -81,6 +81,27 @@ export class TodoRepository {
         return (result.Items as Todo[]) || [];
     }
 
+    /**
+     * Returns all Todo items for a given user and habit (uses habitId-index GSI).
+     */
+    async findAllByUserIdAndHabitId(userId: string, habitId: string): Promise<Todo[]> {
+        logger.debug("DynamoDB query", { table: DYNAMO_TABLES.TODO, index: "habitId-index", userId, habitId });
+        const result = await ddb.send(
+            new QueryCommand({
+                TableName: DYNAMO_TABLES.TODO,
+                IndexName: "habitId-index",
+                KeyConditionExpression: "habitId = :habitId",
+                FilterExpression: "userId = :userId",
+                ExpressionAttributeValues: {
+                    ":habitId": habitId,
+                    ":userId": userId,
+                },
+            })
+        );
+        logger.debug("DynamoDB query result", { table: DYNAMO_TABLES.TODO, userId, habitId, count: result.Items?.length ?? 0 });
+        return (result.Items as Todo[]) || [];
+    }
+
     async updateNotes(userId: string, date: string, habitId: string, notes: string): Promise<void> {
         logger.debug("DynamoDB update", { table: DYNAMO_TABLES.TODO, userId, date, habitId });
         await ddb.send(

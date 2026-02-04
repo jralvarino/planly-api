@@ -8,14 +8,15 @@ import { zodValidator } from "../middlewares/zod-validator.middleware.js";
 import { container } from "../container.js";
 import { logger } from "../utils/logger.js";
 
-const getAuthService = () => container.resolve(AuthService);
+const authService = container.resolve(AuthService);
 
 const login = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(zodValidator(loginSchema))
     .handler(async (event) => {
-        const { body } = (event as APIGatewayProxyEvent & { validated: { body: { user: string; password: string } } }).validated;
+        const { body } = (event as APIGatewayProxyEvent & { validated: { body: { user: string; password: string } } })
+            .validated;
 
-        const token = await getAuthService().login(body.user, body.password);
+        const token = await authService.login(body.user, body.password);
 
         return success({ token });
     });

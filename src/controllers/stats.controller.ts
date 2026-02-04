@@ -9,20 +9,22 @@ import { success } from "../utils/response.util.js";
 import { container } from "../container.js";
 import { logger } from "../utils/logger.js";
 
-const getStatsService = () => container.resolve(StatsService);
+const statsService = container.resolve(StatsService);
 
 const getGlobalStreak = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(authMiddleware())
     .handler(async (event) => {
         const userId = getUserId(event);
 
-        const currentStreak = await getStatsService().getGlobalStreak(userId);
+        const currentStreak = await statsService.getGlobalStreak(userId);
 
         return success({ currentStreak });
     });
 
 type ValidatedDashboard = APIGatewayProxyEvent & {
-    validated: { queryStringParameters: { month: string; categoryId?: string; habitId?: string; selectedDate?: string } };
+    validated: {
+        queryStringParameters: { month: string; categoryId?: string; habitId?: string; selectedDate?: string };
+    };
 };
 
 const getDashboard = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
@@ -30,9 +32,10 @@ const getDashboard = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(zodValidator(getDashboardSchema))
     .handler(async (event) => {
         const userId = getUserId(event);
-        const { month, categoryId, habitId, selectedDate } = (event as ValidatedDashboard).validated.queryStringParameters;
+        const { month, categoryId, habitId, selectedDate } = (event as ValidatedDashboard).validated
+            .queryStringParameters;
 
-        const data = await getStatsService().getDashboardData(userId, month, categoryId, habitId, selectedDate);
+        const data = await statsService.getDashboardData(userId, month, categoryId, habitId, selectedDate);
 
         return success(data);
     });

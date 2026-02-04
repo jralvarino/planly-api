@@ -2,15 +2,12 @@ import { injectable } from "tsyringe";
 import { StatsRepository } from "../repositories/StatsRepository.js";
 import { Stats, StatsScope } from "../models/Stats.js";
 import { logger } from "../utils/logger.js";
-import { InternalServerError } from "../errors/PlanlyError.js";
+import { InternalServerError, NotFoundError } from "../errors/PlanlyError.js";
 import { todayISO } from "../utils/util.js";
 import { HabitStatsUpdater } from "./stats/HabitStatsUpdater.js";
 import { CategoryStatsUpdater } from "./stats/CategoryStatsUpdater.js";
 import { UserStatsUpdater } from "./stats/UserStatsUpdater.js";
-import {
-    StatsDashboardAggregator,
-    type StatsDashboardData,
-} from "./stats/StatsDashboardAggregator.js";
+import { StatsDashboardAggregator, type StatsDashboardData } from "./stats/StatsDashboardAggregator.js";
 import { generatePK, generateSK } from "./stats/StatsKeyGenerator.js";
 import { HabitService } from "./HabitService.js";
 import { TodoService } from "./TodoService.js";
@@ -363,7 +360,7 @@ export class StatsService {
                 pk,
                 sk,
             });
-            throw new Error(`Stats not found: ${params.scope} ${params.habitId}`);
+            throw new NotFoundError(`Stats not found: ${params.scope} ${params.habitId}`);
         }
 
         return stats;

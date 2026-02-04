@@ -1,4 +1,5 @@
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
+import { InternalServerError } from "../errors/PlanlyError.js";
 
 const SECRET_NAME = "planly/jwt";
 
@@ -50,7 +51,7 @@ export async function getJwtSecret(): Promise<string> {
         const response = await client.send(command);
 
         if (!response.SecretString) {
-            throw new Error(`Secret ${SECRET_NAME} não contém um valor string`);
+            throw new InternalServerError(`Secret ${SECRET_NAME} does not contain a string value`);
         }
 
         // O secret pode ser um JSON string ou apenas uma string

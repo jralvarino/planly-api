@@ -7,6 +7,45 @@ import type { TodoList } from "../../models/TodoList.js";
 import { datesRange } from "../../utils/util.js";
 import { TODO_STATUS } from "../../constants/todo.constants.js";
 
+/**
+ * Simplified habit data for selected date display
+ */
+export interface HabitForSelectedDate {
+    id: string;
+    title: string;
+    emoji: string;
+    categoryId: string;
+    completedAt?: string;
+    status: string;
+}
+
+/**
+ * Calculates the best (longest) consecutive streak from an array of completed dates.
+ * @param completedDates Array of date strings in YYYY-MM-DD format (must be sorted)
+ * @returns The length of the longest consecutive streak
+ */
+function calculateBestStreakFromDates(completedDates: string[]): number {
+    if (completedDates.length === 0) return 0;
+
+    let bestStreak = 1;
+    let currentStreak = 1;
+
+    for (let i = 1; i < completedDates.length; i++) {
+        const prevDate = new Date(completedDates[i - 1]);
+        const currDate = new Date(completedDates[i]);
+        const diffDays = Math.floor((currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 1) {
+            currentStreak++;
+            bestStreak = Math.max(bestStreak, currentStreak);
+        } else {
+            currentStreak = 1;
+        }
+    }
+
+    return bestStreak;
+}
+
 export interface StatsDashboardData {
     completedDates: string[];
     globalStreak: number;
@@ -15,12 +54,20 @@ export interface StatsDashboardData {
     lastCompletedDate: string | null;
     monthCompletionCount: number;
     monthCompletionRate: number;
-    daysInMonth: number;
-    habitsForSelectedDate?: TodoList[];
+    monthTotalCompletions: number;
+    monthDailyAverage: number;
+    monthBestStreak: number;
+    habitsForSelectedDate?: HabitForSelectedDate[];
     categoryStreak?: number;
     categoryLongestStreak?: number;
     categoryTotalCompletions?: number;
+    categoryMonthTotalCompletions?: number;
+    categoryMonthDailyAverage?: number;
+    categoryMonthBestStreak?: number;
     habitStreak?: number;
+    habitMonthTotalCompletions?: number;
+    habitMonthDailyAverage?: number;
+    habitMonthBestStreak?: number;
 }
 
 export interface StatsDashboardAggregatorDeps {
@@ -52,17 +99,24 @@ export class StatsDashboardAggregator {
         const completedDates: string[] = [];
         for (const date of monthDates) {
             const todoList = await this.deps.getTodoListByDate(userId, date, categoryId, habitId);
-            const allDone =
-                todoList.length > 0 && todoList.every((t) => t.status === TODO_STATUS.DONE);
+            const allDone = todoList.length > 0 && todoList.every((t) => t.status === TODO_STATUS.DONE);
             if (allDone) {
                 completedDates.push(date);
             }
         }
         completedDates.sort();
 
-        let habitsForSelectedDate: TodoList[] | undefined;
+        let habitsForSelectedDate: HabitForSelectedDate[] | undefined;
         if (selectedDate) {
-            habitsForSelectedDate = await this.deps.getTodoListByDate(userId, selectedDate, categoryId, habitId);
+            const todoList = await this.deps.getTodoListByDate(userId, selectedDate, categoryId, habitId);
+            habitsForSelectedDate = todoList.map((todo) => ({
+                id: todo.id,
+                title: todo.title,
+                emoji: todo.emoji,
+                categoryId: todo.categoryId,
+                completedAt: todo.completedAt,
+                status: todo.status,
+            }));
         }
 
         const userPk = generatePK(userId);
@@ -77,6 +131,68 @@ export class StatsDashboardAggregator {
         const monthCompletionCount = completedDates.length;
         const monthCompletionRate = daysInMonth > 0 ? monthCompletionCount / daysInMonth : 0;
 
+        // Fetch all TODOs from the month to calculate monthTotalCompletions
+        const allMonthTodos = await this.deps.todoRepository.findAllByDateRange(userId, firstDay, lastDay);
+
+        // Calculate monthTotalCompletions for USER (all completed todos in the month)
+        const monthTotalCompletions = allMonthTodos.filter((t) => t.status === TODO_STATUS.DONE).length;
+        const monthDailyAverage = daysInMonth > 0 ? monthTotalCompletions / daysInMonth : 0;
+        const monthBestStreak = calculateBestStreakFromDates(completedDates);
+
+        // Calculate for CATEGORY if filtered
+        let categoryMonthTotalCompletions: number | undefined;
+        let categoryMonthDailyAverage: number | undefined;
+        let categoryMonthBestStreak: number | undefined;
+        let categoryCompletedDates: string[] | undefined;
+
+        if (categoryId) {
+            // Get all habits for this category to filter todos
+            const categoryHabits = await this.deps.habitService.getAllHabits(userId, categoryId);
+            const categoryHabitIds = new Set(categoryHabits.map((h) => h.id));
+
+            categoryMonthTotalCompletions = allMonthTodos.filter(
+                (t) => categoryHabitIds.has(t.habitId) && t.status === TODO_STATUS.DONE
+            ).length;
+            categoryMonthDailyAverage = daysInMonth > 0 ? categoryMonthTotalCompletions / daysInMonth : 0;
+
+            // Calculate category-specific completed dates for best streak
+            categoryCompletedDates = [];
+            for (const date of monthDates) {
+                const todoList = await this.deps.getTodoListByDate(userId, date, categoryId, undefined);
+                const allDone = todoList.length > 0 && todoList.every((t) => t.status === TODO_STATUS.DONE);
+                if (allDone) {
+                    categoryCompletedDates.push(date);
+                }
+            }
+            categoryCompletedDates.sort();
+            categoryMonthBestStreak = calculateBestStreakFromDates(categoryCompletedDates);
+        }
+
+        // Calculate for HABIT if filtered
+        let habitMonthTotalCompletions: number | undefined;
+        let habitMonthDailyAverage: number | undefined;
+        let habitMonthBestStreak: number | undefined;
+        let habitCompletedDates: string[] | undefined;
+
+        if (habitId) {
+            habitMonthTotalCompletions = allMonthTodos.filter(
+                (t) => t.habitId === habitId && t.status === TODO_STATUS.DONE
+            ).length;
+            habitMonthDailyAverage = daysInMonth > 0 ? habitMonthTotalCompletions / daysInMonth : 0;
+
+            // Calculate habit-specific completed dates for best streak
+            habitCompletedDates = [];
+            for (const date of monthDates) {
+                const todoList = await this.deps.getTodoListByDate(userId, date, undefined, habitId);
+                const allDone = todoList.length > 0 && todoList.every((t) => t.status === TODO_STATUS.DONE);
+                if (allDone) {
+                    habitCompletedDates.push(date);
+                }
+            }
+            habitCompletedDates.sort();
+            habitMonthBestStreak = calculateBestStreakFromDates(habitCompletedDates);
+        }
+
         const result: StatsDashboardData = {
             completedDates,
             globalStreak,
@@ -85,7 +201,9 @@ export class StatsDashboardAggregator {
             lastCompletedDate,
             monthCompletionCount,
             monthCompletionRate,
-            daysInMonth,
+            monthTotalCompletions,
+            monthDailyAverage,
+            monthBestStreak,
         };
 
         if (habitsForSelectedDate !== undefined) {
@@ -98,12 +216,18 @@ export class StatsDashboardAggregator {
             result.categoryStreak = categoryStats?.currentStreak ?? 0;
             result.categoryLongestStreak = categoryStats?.longestStreak ?? 0;
             result.categoryTotalCompletions = categoryStats?.totalCompletions ?? 0;
+            result.categoryMonthTotalCompletions = categoryMonthTotalCompletions;
+            result.categoryMonthDailyAverage = categoryMonthDailyAverage;
+            result.categoryMonthBestStreak = categoryMonthBestStreak;
         }
 
         if (habitId) {
             const habitSk = generateSK("HABIT", habitId, "");
             const habitStats = await this.deps.repository.get(userPk, habitSk);
             result.habitStreak = habitStats?.currentStreak ?? 0;
+            result.habitMonthTotalCompletions = habitMonthTotalCompletions;
+            result.habitMonthDailyAverage = habitMonthDailyAverage;
+            result.habitMonthBestStreak = habitMonthBestStreak;
         }
 
         return result;

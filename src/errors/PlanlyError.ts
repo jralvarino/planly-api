@@ -46,7 +46,7 @@ export class UnauthorizedError extends PlanlyError {
 }
 
 export class ForbiddenError extends PlanlyError {
-    constructor(message: string = "Acesso negado", details?: any) {
+    constructor(message: string = "Access denied", details?: any) {
         super(message, 403, "FORBIDDEN", details);
         this.name = "ForbiddenError";
     }

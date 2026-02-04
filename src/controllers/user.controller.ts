@@ -7,15 +7,15 @@ import { success } from "../utils/response.util.js";
 import { container } from "../container.js";
 import { logger } from "../utils/logger.js";
 
-const getUserService = () => container.resolve(UserService);
+const userService = container.resolve(UserService);
 
 const getProfile = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(authMiddleware())
     .handler(async (event) => {
         const userId = getUserId(event);
 
-        const profile = await getUserService().getProfile(userId);
-        
+        const profile = await userService.getProfile(userId);
+
         return success(profile);
     });
 
@@ -26,4 +26,3 @@ export const routes: Route<APIGatewayProxyEvent, APIGatewayProxyResult>[] = [
         handler: getProfile,
     },
 ];
-

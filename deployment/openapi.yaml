@@ -142,6 +142,22 @@ components:
                 completedAt: { type: string, format: date-time, description: ISO timestamp when habit was marked done }
                 streak: { type: integer }
                 updatedAt: { type: string }
+        HabitForSelectedDate:
+            type: object
+            description: Simplified habit data for selected date in dashboard
+            required: [id, title, emoji, categoryId, status]
+            properties:
+                id: { type: string, description: Habit ID }
+                title: { type: string, description: Habit title }
+                emoji: { type: string, description: Habit emoji }
+                categoryId: { type: string, description: Category ID }
+                completedAt:
+                    {
+                        type: string,
+                        format: date-time,
+                        description: ISO timestamp when habit was marked done (only present if status is done),
+                    }
+                status: { type: string, enum: [done, pending, skipped], description: Current status of the habit }
         DailySummaryItem:
             type: object
             properties:
@@ -165,21 +181,56 @@ components:
                             total: { type: integer }
         DashboardResponse:
             type: object
-            required: [completedDates, globalStreak, globalLongestStreak, globalTotalCompletions, lastCompletedDate, monthCompletionCount, monthCompletionRate, daysInMonth]
+            required:
+                [
+                    completedDates,
+                    globalStreak,
+                    globalLongestStreak,
+                    globalTotalCompletions,
+                    lastCompletedDate,
+                    monthCompletionCount,
+                    monthCompletionRate,
+                    monthTotalCompletions,
+                    monthDailyAverage,
+                    monthBestStreak,
+                ]
             properties:
-                completedDates: { type: array, items: { type: string } }
-                globalStreak: { type: number }
-                globalLongestStreak: { type: number }
-                globalTotalCompletions: { type: number }
-                lastCompletedDate: { type: [string, "null"] }
-                monthCompletionCount: { type: number }
-                monthCompletionRate: { type: number }
-                daysInMonth: { type: number }
-                habitsForSelectedDate: { type: array, items: { $ref: "#/components/schemas/TodoListItem" } }
-                categoryStreak: { type: number }
-                categoryLongestStreak: { type: number }
-                categoryTotalCompletions: { type: number }
+                completedDates:
+                    {
+                        type: array,
+                        items: { type: string },
+                        description: "Array of dates where all habits were completed",
+                    }
+                globalStreak: { type: number, description: "Current global streak (all habits)" }
+                globalLongestStreak: { type: number, description: "Longest global streak ever" }
+                globalTotalCompletions: { type: number, description: "Total completions since beginning" }
+                lastCompletedDate: { type: [string, "null"], description: "Last date when all habits were completed" }
+                monthCompletionCount: { type: number, description: "Number of perfect days in the month" }
+                monthCompletionRate: { type: number, description: "Rate of perfect days in the month" }
+                monthTotalCompletions: { type: number, description: "Total habits completed in the month" }
+                monthDailyAverage: { type: number, description: "Average habits completed per day in the month" }
+                monthBestStreak: { type: number, description: "Best consecutive streak within the month" }
+                habitsForSelectedDate:
+                    {
+                        type: array,
+                        items: { $ref: "#/components/schemas/HabitForSelectedDate" },
+                        description: "Habits list for selected date (when selectedDate is provided)",
+                    }
+                categoryStreak: { type: number, description: "Present when categoryId is provided" }
+                categoryLongestStreak: { type: number, description: "Present when categoryId is provided" }
+                categoryTotalCompletions: { type: number, description: "Present when categoryId is provided" }
+                categoryMonthTotalCompletions:
+                    { type: number, description: "Total habits completed in the month for this category" }
+                categoryMonthDailyAverage:
+                    { type: number, description: "Average habits completed per day for this category" }
+                categoryMonthBestStreak:
+                    { type: number, description: "Best consecutive streak within the month for this category" }
                 habitStreak: { type: number, description: "Present when habitId is provided" }
+                habitMonthTotalCompletions:
+                    { type: number, description: "Total completions in the month for this habit" }
+                habitMonthDailyAverage: { type: number, description: "Average completions per day for this habit" }
+                habitMonthBestStreak:
+                    { type: number, description: "Best consecutive streak within the month for this habit" }
         Error:
             type: object
             properties:

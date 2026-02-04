@@ -11,7 +11,7 @@ import { BadRequestError } from "../errors/PlanlyError.js";
 import { container } from "../container.js";
 import { logger } from "../utils/logger.js";
 
-const getTodoService = () => container.resolve(TodoService);
+const todoService = container.resolve(TodoService);
 
 const getTodoListByDate = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(authMiddleware())
@@ -19,7 +19,7 @@ const getTodoListByDate = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
         const userId = getUserId(event);
         const date = event.queryStringParameters?.date || "";
 
-        const todoList = await getTodoService().getTodoListByDate(userId, date);
+        const todoList = await todoService.getTodoListByDate(userId, date);
 
         return success(todoList);
     });
@@ -29,7 +29,14 @@ const createOrUpdateTodo = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(zodValidator(updateTodoStatusSchema))
     .handler(async (event) => {
         const userId = getUserId(event);
-        const { body, pathParameters } = (event as APIGatewayProxyEvent & { validated: { body: { date: string; status: string; progressValue?: number; notes?: string }; pathParameters: { habitId: string } } }).validated;
+        const { body, pathParameters } = (
+            event as APIGatewayProxyEvent & {
+                validated: {
+                    body: { date: string; status: string; progressValue?: number; notes?: string };
+                    pathParameters: { habitId: string };
+                };
+            }
+        ).validated;
 
         const updateParams: UpdateStatusParams = {
             userId,
@@ -39,7 +46,7 @@ const createOrUpdateTodo = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
             progressValue: body.progressValue,
         };
 
-        await getTodoService().createOrUpdate(updateParams);
+        await todoService.createOrUpdate(updateParams);
         return noContent();
     });
 
@@ -55,7 +62,7 @@ const getDailySummary = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
             throw new BadRequestError("startDate and endDate query parameters are required");
         }
 
-        const dailySummary = await getTodoService().getDailySummary(userId, startDate, endDate);
+        const dailySummary = await todoService.getDailySummary(userId, startDate, endDate);
 
         return success(dailySummary);
     });
@@ -65,10 +72,14 @@ const updateTodoNotes = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(zodValidator(updateTodoNotesSchema))
     .handler(async (event) => {
         const userId = getUserId(event);
-        const { body, pathParameters } = (event as APIGatewayProxyEvent & { validated: { body: { date: string; notes: string }; pathParameters: { habitId: string } } }).validated;
+        const { body, pathParameters } = (
+            event as APIGatewayProxyEvent & {
+                validated: { body: { date: string; notes: string }; pathParameters: { habitId: string } };
+            }
+        ).validated;
 
-        await getTodoService().updateNotes(userId, pathParameters.habitId, body.date, body.notes);
-        
+        await todoService.updateNotes(userId, pathParameters.habitId, body.date, body.notes);
+
         return noContent();
     });
 

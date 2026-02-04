@@ -14,7 +14,7 @@ import { created, success } from "../utils/response.util.js";
 import { container } from "../container.js";
 import { logger } from "../utils/logger.js";
 
-const getCategoryService = () => container.resolve(CategoryService);
+const categoryService = container.resolve(CategoryService);
 
 const createCategory = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(authMiddleware())
@@ -23,7 +23,7 @@ const createCategory = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
         const userId = getUserId(event);
         const { body } = (event as APIGatewayProxyEvent & { validated: { body: { name: string } } }).validated;
 
-        const category = await getCategoryService().create(userId, body.name);
+        const category = await categoryService.create(userId, body.name);
 
         return created({ category });
     });
@@ -33,10 +33,12 @@ const updateCategory = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(zodValidator(updateCategorySchema))
     .handler(async (event) => {
         const userId = getUserId(event);
-        const { body, pathParameters } = (event as APIGatewayProxyEvent & { validated: { body: { name: string }; pathParameters: { id: string } } }).validated;
+        const { body, pathParameters } = (
+            event as APIGatewayProxyEvent & { validated: { body: { name: string }; pathParameters: { id: string } } }
+        ).validated;
 
-        const category = await getCategoryService().update(userId, pathParameters.id, body.name);
-    
+        const category = await categoryService.update(userId, pathParameters.id, body.name);
+
         return success({ category });
     });
 
@@ -45,7 +47,7 @@ const getAllCategories = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .handler(async (event) => {
         const userId = getUserId(event);
 
-        const categories = await getCategoryService().getAllCategories(userId);
+        const categories = await categoryService.getAllCategories(userId);
 
         return success(Object.values(categories));
     });
@@ -55,9 +57,10 @@ const getCategoryById = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(zodValidator(getCategoryByIdSchema))
     .handler(async (event) => {
         const userId = getUserId(event);
-        const { pathParameters } = (event as APIGatewayProxyEvent & { validated: { pathParameters: { id: string } } }).validated;
+        const { pathParameters } = (event as APIGatewayProxyEvent & { validated: { pathParameters: { id: string } } })
+            .validated;
 
-        const category = await getCategoryService().getCategoryById(userId, pathParameters.id);
+        const category = await categoryService.getCategoryById(userId, pathParameters.id);
 
         return success(category);
     });
@@ -67,10 +70,11 @@ const deleteCategory = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(zodValidator(deleteCategorySchema))
     .handler(async (event) => {
         const userId = getUserId(event);
-        const { pathParameters } = (event as APIGatewayProxyEvent & { validated: { pathParameters: { id: string } } }).validated;
+        const { pathParameters } = (event as APIGatewayProxyEvent & { validated: { pathParameters: { id: string } } })
+            .validated;
 
-        await getCategoryService().delete(userId, pathParameters.id);
-        
+        await categoryService.delete(userId, pathParameters.id);
+
         return success({ message: "Category deleted successfully" });
     });
 

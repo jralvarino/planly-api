@@ -15,7 +15,7 @@ const todoService = container.resolve(TodoService);
 const statsService = container.resolve(StatsService);
 
 /**
- * Lambda triggered daily at 00:01 (EventBridge Schedule).
+ * Lambda triggered daily at 00:01 GMT-3 (EventBridge Schedule).
  * Lists users first, then for each user uses getTodoListByDate(userId, yesterday) to get all habits of the previous day.
  * For each habit in that list, if no TODO row exists (user took no action), recalculate streaks.
  */

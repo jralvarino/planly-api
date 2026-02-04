@@ -419,26 +419,42 @@ Resources:
             Timeout: 120
             MemorySize: 256
 
-    # EventBridge Rule: run daily at 00:01 UTC (03:01 BRT = cron(1 3 * * ? *))
-    StatsMidnightScheduleRule:
-        Type: AWS::Events::Rule
+    # IAM Role for EventBridge Scheduler (invoke Stats Midnight Lambda)
+    StatsMidnightSchedulerExecutionRole:
+        Type: AWS::IAM::Role
+        Properties:
+            RoleName: planly-stats-midnight-scheduler-role
+            AssumeRolePolicyDocument:
+                Version: "2012-10-17"
+                Statement:
+                    - Effect: Allow
+                      Principal:
+                          Service: scheduler.amazonaws.com
+                      Action: sts:AssumeRole
+            Policies:
+                - PolicyName: InvokeStatsMidnightLambda
+                  PolicyDocument:
+                      Version: "2012-10-17"
+                      Statement:
+                          - Effect: Allow
+                            Action: lambda:InvokeFunction
+                            Resource: !GetAtt StatsMidnightLambdaFunction.Arn
+
+    # EventBridge Scheduler: run daily at 00:01 GMT-3 (replaces legacy scheduled rule)
+    StatsMidnightSchedule:
+        Type: AWS::Scheduler::Schedule
+        DependsOn: StatsMidnightSchedulerExecutionRole
         Properties:
             Name: planly-stats-midnight-schedule
-            Description: Trigger stats midnight job daily at 00:01 UTC
+            Description: Trigger stats midnight job daily at 00:01 GMT-3
             ScheduleExpression: cron(1 0 * * ? *)
-            State: ENABLED
-            Targets:
-                - Id: StatsMidnightLambda
-                  Arn: !GetAtt StatsMidnightLambdaFunction.Arn
-
-    # Permission for EventBridge to invoke the Lambda
-    StatsMidnightLambdaEventBridgePermission:
-        Type: AWS::Lambda::Permission
-        Properties:
-            FunctionName: !Ref StatsMidnightLambdaFunction
-            Action: lambda:InvokeFunction
-            Principal: events.amazonaws.com
-            SourceArn: !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/planly-stats-midnight-schedule"
+            ScheduleExpressionTimezone: "America/Sao_Paulo"
+            FlexibleTimeWindow:
+                Mode: "OFF"
+            State: "ENABLED"
+            Target:
+                Arn: !GetAtt StatsMidnightLambdaFunction.Arn
+                RoleArn: !GetAtt StatsMidnightSchedulerExecutionRole.Arn
 
 Outputs:
     ApiUrl:
@@ -501,8 +517,8 @@ Outputs:
         Export:
             Name: !Sub "${AWS::StackName}-StatsMidnightLambdaFunctionName"
 
-    StatsMidnightScheduleRuleName:
-        Description: EventBridge rule for stats midnight job
-        Value: !Ref StatsMidnightScheduleRule
+    StatsMidnightScheduleName:
+        Description: EventBridge Scheduler schedule for stats midnight job
+        Value: !Ref StatsMidnightSchedule
         Export:
-            Name: !Sub "${AWS::StackName}-StatsMidnightScheduleRuleName"
+            Name: !Sub "${AWS::StackName}-StatsMidnightScheduleName"

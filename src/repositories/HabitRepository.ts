@@ -1,5 +1,5 @@
 import { injectable } from "tsyringe";
-import { DeleteCommand, GetCommand, PutCommand, QueryCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
+import { DeleteCommand, GetCommand, PutCommand, QueryCommand, ScanCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { ddb } from "../db/dynamoClient.js";
 import { Habit } from "../models/Habit.js";
 import { DYNAMO_TABLES } from "../db/dynamodb.tables.js";
@@ -73,7 +73,12 @@ export class HabitRepository {
                 },
             })
         );
-        logger.debug("DynamoDB query result", { table: DYNAMO_TABLES.HABIT, userId, date, count: result.Items?.length ?? 0 });
+        logger.debug("DynamoDB query result", {
+            table: DYNAMO_TABLES.HABIT,
+            userId,
+            date,
+            count: result.Items?.length ?? 0,
+        });
         return (result.Items as Habit[]) || [];
     }
 
@@ -104,5 +109,27 @@ export class HabitRepository {
         } while (lastKey);
         logger.debug("DynamoDB scan result", { table: DYNAMO_TABLES.HABIT, totalCount: items.length });
         return items;
+    }
+
+    /**
+     * Create initial targetChanges entry only if it does not already exist.
+     * This avoids overwriting or appending to manually backfilled data.
+     */
+    async appendTargetChange(habitId: string, change: { date: string; value: number }): Promise<void> {
+        logger.debug("DynamoDB set initial targetChange", { table: DYNAMO_TABLES.HABIT, habitId, change });
+        // Append the change to the existing list, or create the list if it doesn't exist.
+        await ddb.send(
+            new UpdateCommand({
+                TableName: DYNAMO_TABLES.HABIT,
+                Key: { id: habitId },
+                UpdateExpression:
+                    "SET targetChanges = list_append(if_not_exists(targetChanges, :empty_list), :new), updatedAt = :updatedAt",
+                ExpressionAttributeValues: {
+                    ":empty_list": [],
+                    ":new": [change],
+                    ":updatedAt": new Date().toISOString(),
+                },
+            })
+        );
     }
 }

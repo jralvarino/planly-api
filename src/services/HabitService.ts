@@ -51,6 +51,11 @@ export class HabitService {
             updatedAt: now,
         } as Habit;
 
+        // Allow providing initial targetChanges on create; otherwise set default initial entry.
+        habit.targetChanges = (habitData as Partial<Habit>).targetChanges ?? [
+            { date: now, value: Number(habit.value) || 0 },
+        ];
+
         await this.repository.create(habit);
         logger.debug("Habit created", { userId, habitId: id, categoryId: habit.categoryId });
 
@@ -111,16 +116,24 @@ export class HabitService {
 
         await this.repository.update(updatedHabit);
 
-        const statsAffectingFields = [
-            "start_date",
-            "end_date",
-            "period_type",
-            "period_value",
-            "categoryId",
-        ] as const;
+        // If value changed, append a targetChanges entry so previous dates keep their original target
+        try {
+            if (
+                habitData.value !== undefined &&
+                String(existingHabit.value ?? "") !== String(updatedHabit.value ?? "")
+            ) {
+                await this.repository.appendTargetChange(id, {
+                    date: new Date().toISOString(),
+                    value: Number(updatedHabit.value) || 0,
+                });
+            }
+        } catch (err) {
+            logger.warn("Failed to append targetChange on habit update", { habitId: id, err });
+        }
+
+        const statsAffectingFields = ["start_date", "end_date", "period_type", "period_value", "categoryId"] as const;
         const hasStatsRelevantChange = statsAffectingFields.some(
-            (field) =>
-                String(existingHabit[field] ?? "") !== String(updatedHabit[field] ?? "")
+            (field) => String(existingHabit[field] ?? "") !== String(updatedHabit[field] ?? "")
         );
         if (hasStatsRelevantChange) {
             await this.statsService.recalculateStatsOnHabitEdited(
@@ -155,9 +168,9 @@ export class HabitService {
 
         await this.statsService.deleteHabitStats(userId, id);
         await this.repository.delete(id);
-        
+
         await this.statsService.recalculateStatsOnHabitDeleted(userId, habit.categoryId ?? "");
-        
+
         logger.debug("Habit deleted", { userId, habitId: id });
     }
 

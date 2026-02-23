@@ -7,6 +7,7 @@ export interface Habit {
     emoji: string;
     unit: "count" | "pg" | "km" | "ml";
     value: string;
+    targetChanges?: { date: string; value: number }[];
     period_type: "every_day" | "specific_days_week" | "specific_days_month";
     period_value?: string;
     categoryId: string;

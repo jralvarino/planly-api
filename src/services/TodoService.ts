@@ -41,7 +41,7 @@ export class TodoService {
         const existing = await this.todoRepository.findByUserDateAndHabit(userId, date, habitId);
 
         const now = new Date().toISOString();
-        const habitTargetValue = parseInt(habit.value);
+        const habitTargetValue = getHabitTargetForDate(habit, date);
 
         const todo: Todo = {
             PK: `USER#${userId}`,
@@ -103,7 +103,7 @@ export class TodoService {
                     color: habit.color,
                     emoji: habit.emoji,
                     unit: habit.unit,
-                    targetValue: habit.value,
+                    targetValue: String(getHabitTargetForDate(habit, date)),
                     period: habit.period,
                     active: habit.active,
                     categoryId: habit.categoryId,
@@ -265,4 +265,22 @@ export function isValidForTargetDate(habit: Habit, date: Date): boolean {
         default:
             return false;
     }
+}
+
+function getHabitTargetForDate(habit: Habit, targetDate: string): number {
+    // targetDate: 'YYYY-MM-DD'
+    if (habit.targetChanges && habit.targetChanges.length > 0) {
+        // Find the latest change with date <= targetDate
+        let candidate: { date: string; value: number } | undefined;
+        for (const c of habit.targetChanges) {
+            const cDate = c.date.slice(0, 10);
+            if (cDate <= targetDate) {
+                if (!candidate || cDate > candidate.date.slice(0, 10)) {
+                    candidate = c;
+                }
+            }
+        }
+        if (candidate) return candidate.value;
+    }
+    return parseInt(habit.value) || 0;
 }

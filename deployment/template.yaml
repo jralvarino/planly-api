@@ -56,19 +56,6 @@ Resources:
                   Projection:
                       ProjectionType: ALL
 
-    # DynamoDB Table for Users
-    UserTable:
-        Type: AWS::DynamoDB::Table
-        Properties:
-            TableName: user
-            BillingMode: PAY_PER_REQUEST
-            AttributeDefinitions:
-                - AttributeName: userId
-                  AttributeType: S
-            KeySchema:
-                - AttributeName: userId
-                  KeyType: HASH
-
     # IAM Role for Category Lambda
     CategoryLambdaExecutionRole:
         Type: AWS::IAM::Role
@@ -99,8 +86,6 @@ Resources:
                             Resource:
                                 - !GetAtt CategoryTable.Arn
                                 - !Sub "${CategoryTable.Arn}/index/*"
-                                - !GetAtt UserTable.Arn
-                                - !Sub "${UserTable.Arn}/index/*"
                 - PolicyName: SecretsManagerAccess
                   PolicyDocument:
                       Version: "2012-10-17"
@@ -255,8 +240,6 @@ Resources:
                                 - !Sub "${HabitTable.Arn}/index/*"
                                 - !GetAtt CategoryTable.Arn
                                 - !Sub "${CategoryTable.Arn}/index/*"
-                                - !GetAtt UserTable.Arn
-                                - !Sub "${UserTable.Arn}/index/*"
                                 - !GetAtt TodoTable.Arn
                                 - !Sub "${TodoTable.Arn}/index/*"
                                 - !GetAtt StatsTable.Arn
@@ -326,8 +309,6 @@ Resources:
                             Resource:
                                 - !GetAtt CategoryTable.Arn
                                 - !Sub "${CategoryTable.Arn}/index/*"
-                                - !GetAtt UserTable.Arn
-                                - !Sub "${UserTable.Arn}/index/*"
                                 - !GetAtt TodoTable.Arn
                                 - !Sub "${TodoTable.Arn}/index/*"
                                 - !GetAtt HabitTable.Arn
@@ -398,8 +379,6 @@ Resources:
                             Resource:
                                 - !GetAtt CategoryTable.Arn
                                 - !Sub "${CategoryTable.Arn}/index/*"
-                                - !GetAtt UserTable.Arn
-                                - !Sub "${UserTable.Arn}/index/*"
                                 - !GetAtt HabitTable.Arn
                                 - !Sub "${HabitTable.Arn}/index/*"
                                 - !GetAtt TodoTable.Arn
@@ -480,12 +459,6 @@ Outputs:
         Value: !Ref CategoryTable
         Export:
             Name: !Sub "${AWS::StackName}-CategoryTableName"
-
-    UserTableName:
-        Description: DynamoDB User Table Name
-        Value: !Ref UserTable
-        Export:
-            Name: !Sub "${AWS::StackName}-UserTableName"
 
     HabitLambdaFunctionName:
         Description: Habit Lambda Function Name

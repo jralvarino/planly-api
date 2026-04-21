@@ -4,7 +4,7 @@ import middy from "@middy/core";
 import { updateTodoStatusSchema, updateTodoNotesSchema } from "../schemas/todo.schemas.js";
 import { TodoService, UpdateStatusParams } from "../services/TodoService.js";
 import { TodoStatus } from "../constants/todo.constants.js";
-import { authMiddleware, getUserId } from "../middlewares/auth.middleware.js";
+import { getUserId } from "../middlewares/auth.middleware.js";
 import { zodValidator } from "../middlewares/zod-validator.middleware.js";
 import { success, noContent } from "../utils/response.util.js";
 import { BadRequestError } from "../errors/PlanlyError.js";
@@ -14,7 +14,6 @@ import { logger } from "../utils/logger.js";
 const todoService = container.resolve(TodoService);
 
 const getTodoListByDate = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
-    .use(authMiddleware())
     .handler(async (event) => {
         const userId = getUserId(event);
         const date = event.queryStringParameters?.date || "";
@@ -25,7 +24,6 @@ const getTodoListByDate = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     });
 
 const createOrUpdateTodo = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
-    .use(authMiddleware())
     .use(zodValidator(updateTodoStatusSchema))
     .handler(async (event) => {
         const userId = getUserId(event);
@@ -51,7 +49,6 @@ const createOrUpdateTodo = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     });
 
 const getDailySummary = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
-    .use(authMiddleware())
     .handler(async (event) => {
         const userId = getUserId(event);
         const startDate = event.queryStringParameters?.startDate;
@@ -68,7 +65,6 @@ const getDailySummary = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     });
 
 const updateTodoNotes = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
-    .use(authMiddleware())
     .use(zodValidator(updateTodoNotesSchema))
     .handler(async (event) => {
         const userId = getUserId(event);

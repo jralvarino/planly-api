@@ -4,29 +4,22 @@ info:
     version: "1.0.0"
     description: |
         Planly API - Habits, todos, categories and stats.
-        Authenticate via POST /auth/login; use the returned JWT in Authorization header for protected endpoints.
+        Authentication is handled by the arj-auth-service Lambda Authorizer.
+        Include the JWT token in the Authorization header: Authorization: Bearer <token>
 components:
     securitySchemes:
-        bearerAuth:
-            type: http
-            scheme: bearer
-            bearerFormat: JWT
+        arjAuthorizer:
+            type: apiKey
+            name: Authorization
+            in: header
+            x-amazon-apigateway-authtype: custom
+            x-amazon-apigateway-authorizer:
+                type: token
+                authorizerUri:
+                    Fn::Sub: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AuthorizerFunctionArn}/invocations"
+                authorizerResultTtlInSeconds: 300
+                identitySource: method.request.header.Authorization
     schemas:
-        LoginRequest:
-            type: object
-            required: [user, password]
-            properties:
-                user: { type: string }
-                password: { type: string }
-        LoginResponse:
-            type: object
-            properties:
-                token: { type: string }
-        VerifyResponse:
-            type: object
-            properties:
-                valid: { type: boolean }
-                userId: { type: string }
         UserProfile:
             type: object
             properties:
@@ -238,112 +231,12 @@ components:
                 code: { type: string }
                 field: { type: string }
 paths:
-    /auth/login:
-        post:
-            summary: Login and get JWT token
-            operationId: login
-            requestBody:
-                content:
-                    application/json:
-                        schema: { $ref: "#/components/schemas/LoginRequest" }
-            responses:
-                "200":
-                    description: Login successful, returns JWT token
-                    content:
-                        application/json:
-                            schema: { $ref: "#/components/schemas/LoginResponse" }
-                "401":
-                    description: Invalid credentials
-                    content:
-                        application/json:
-                            schema: { $ref: "#/components/schemas/Error" }
-            x-amazon-apigateway-integration:
-                type: aws_proxy
-                httpMethod: POST
-                uri:
-                    Fn::Sub: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CategoryLambdaFunction.Arn}/invocations"
-        options:
-            summary: CORS preflight
-            operationId: optionsAuthLogin
-            responses:
-                "200":
-                    description: CORS response
-                    headers:
-                        Access-Control-Allow-Origin:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Methods:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Headers:
-                            schema:
-                                type: string
-            x-amazon-apigateway-integration:
-                type: mock
-                requestTemplates:
-                    application/json: '{"statusCode": 200}'
-                responses:
-                    default:
-                        statusCode: "200"
-                        responseParameters:
-                            method.response.header.Access-Control-Allow-Origin: "'*'"
-                            method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-    /auth/verify:
-        get:
-            summary: Verify JWT token
-            operationId: verify
-            security:
-                - bearerAuth: []
-            responses:
-                "200":
-                    description: Token is valid
-                    content:
-                        application/json:
-                            schema: { $ref: "#/components/schemas/VerifyResponse" }
-                "401":
-                    description: Invalid or missing token
-                    content:
-                        application/json:
-                            schema: { $ref: "#/components/schemas/Error" }
-            x-amazon-apigateway-integration:
-                type: aws_proxy
-                httpMethod: POST
-                uri:
-                    Fn::Sub: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CategoryLambdaFunction.Arn}/invocations"
-        options:
-            summary: CORS preflight
-            operationId: optionsAuthVerify
-            responses:
-                "200":
-                    description: CORS response
-                    headers:
-                        Access-Control-Allow-Origin:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Methods:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Headers:
-                            schema:
-                                type: string
-            x-amazon-apigateway-integration:
-                type: mock
-                requestTemplates:
-                    application/json: '{"statusCode": 200}'
-                responses:
-                    default:
-                        statusCode: "200"
-                        responseParameters:
-                            method.response.header.Access-Control-Allow-Origin: "'*'"
-                            method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
     /user:
         get:
-            summary: Get current user profile (without password)
+            summary: Get current user profile
             operationId: getUser
             security:
-                - bearerAuth: []
+                - arjAuthorizer: []
             responses:
                 "200":
                     description: User profile
@@ -351,7 +244,7 @@ paths:
                         application/json:
                             schema: { $ref: "#/components/schemas/UserProfile" }
                 "401":
-                    description: Unauthorized - invalid or missing token
+                    description: Unauthorized
                     content:
                         application/json:
                             schema: { $ref: "#/components/schemas/Error" }
@@ -372,15 +265,9 @@ paths:
                 "200":
                     description: CORS response
                     headers:
-                        Access-Control-Allow-Origin:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Methods:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Headers:
-                            schema:
-                                type: string
+                        Access-Control-Allow-Origin: { schema: { type: string } }
+                        Access-Control-Allow-Methods: { schema: { type: string } }
+                        Access-Control-Allow-Headers: { schema: { type: string } }
             x-amazon-apigateway-integration:
                 type: mock
                 requestTemplates:
@@ -390,14 +277,14 @@ paths:
                         statusCode: "200"
                         responseParameters:
                             method.response.header.Access-Control-Allow-Origin: "'*'"
-                            method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                            method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
     /categories:
         post:
             summary: Create a new category
             operationId: createCategory
             security:
-                - bearerAuth: []
+                - arjAuthorizer: []
             requestBody:
                 content:
                     application/json:
@@ -425,10 +312,10 @@ paths:
             summary: Get all categories for the authenticated user
             operationId: getCategories
             security:
-                - bearerAuth: []
+                - arjAuthorizer: []
             responses:
                 "200":
-                    description: List of categories for the user
+                    description: List of categories
                     content:
                         application/json:
                             schema:
@@ -451,15 +338,9 @@ paths:
                 "200":
                     description: CORS response
                     headers:
-                        Access-Control-Allow-Origin:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Methods:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Headers:
-                            schema:
-                                type: string
+                        Access-Control-Allow-Origin: { schema: { type: string } }
+                        Access-Control-Allow-Methods: { schema: { type: string } }
+                        Access-Control-Allow-Headers: { schema: { type: string } }
             x-amazon-apigateway-integration:
                 type: mock
                 requestTemplates:
@@ -469,20 +350,19 @@ paths:
                         statusCode: "200"
                         responseParameters:
                             method.response.header.Access-Control-Allow-Origin: "'*'"
-                            method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                            method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
     /categories/{id}:
         get:
-            summary: Get category by ID for the authenticated user
+            summary: Get category by ID
             operationId: getCategoryById
             security:
-                - bearerAuth: []
+                - arjAuthorizer: []
             parameters:
                 - name: id
                   in: path
                   required: true
-                  schema:
-                      type: string
+                  schema: { type: string }
             responses:
                 "200":
                     description: Category details
@@ -508,13 +388,12 @@ paths:
             summary: Update category
             operationId: updateCategory
             security:
-                - bearerAuth: []
+                - arjAuthorizer: []
             parameters:
                 - name: id
                   in: path
                   required: true
-                  schema:
-                      type: string
+                  schema: { type: string }
             requestBody:
                 content:
                     application/json:
@@ -538,11 +417,6 @@ paths:
                     content:
                         application/json:
                             schema: { $ref: "#/components/schemas/Error" }
-                "409":
-                    description: Category with new name already exists
-                    content:
-                        application/json:
-                            schema: { $ref: "#/components/schemas/Error" }
             x-amazon-apigateway-integration:
                 type: aws_proxy
                 httpMethod: POST
@@ -552,13 +426,12 @@ paths:
             summary: Delete category
             operationId: deleteCategory
             security:
-                - bearerAuth: []
+                - arjAuthorizer: []
             parameters:
                 - name: id
                   in: path
                   required: true
-                  schema:
-                      type: string
+                  schema: { type: string }
             responses:
                 "200":
                     description: Category deleted successfully
@@ -590,21 +463,14 @@ paths:
                 - name: id
                   in: path
                   required: true
-                  schema:
-                      type: string
+                  schema: { type: string }
             responses:
                 "200":
                     description: CORS response
                     headers:
-                        Access-Control-Allow-Origin:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Methods:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Headers:
-                            schema:
-                                type: string
+                        Access-Control-Allow-Origin: { schema: { type: string } }
+                        Access-Control-Allow-Methods: { schema: { type: string } }
+                        Access-Control-Allow-Headers: { schema: { type: string } }
             x-amazon-apigateway-integration:
                 type: mock
                 requestTemplates:
@@ -614,14 +480,14 @@ paths:
                         statusCode: "200"
                         responseParameters:
                             method.response.header.Access-Control-Allow-Origin: "'*'"
-                            method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                            method.response.header.Access-Control-Allow-Methods: "'GET,PUT,DELETE,OPTIONS'"
+                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
     /habits:
         post:
             summary: Create a new habit
             operationId: createHabit
             security:
-                - bearerAuth: []
+                - arjAuthorizer: []
             requestBody:
                 content:
                     application/json:
@@ -649,17 +515,15 @@ paths:
             summary: Get all habits for the authenticated user
             operationId: getHabits
             security:
-                - bearerAuth: []
+                - arjAuthorizer: []
             parameters:
                 - name: categoryId
                   in: query
                   required: false
-                  description: Filter habits by category ID
-                  schema:
-                      type: string
+                  schema: { type: string }
             responses:
                 "200":
-                    description: List of habits for the user
+                    description: List of habits
                     content:
                         application/json:
                             schema:
@@ -682,15 +546,9 @@ paths:
                 "200":
                     description: CORS response
                     headers:
-                        Access-Control-Allow-Origin:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Methods:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Headers:
-                            schema:
-                                type: string
+                        Access-Control-Allow-Origin: { schema: { type: string } }
+                        Access-Control-Allow-Methods: { schema: { type: string } }
+                        Access-Control-Allow-Headers: { schema: { type: string } }
             x-amazon-apigateway-integration:
                 type: mock
                 requestTemplates:
@@ -700,424 +558,19 @@ paths:
                         statusCode: "200"
                         responseParameters:
                             method.response.header.Access-Control-Allow-Origin: "'*'"
-                            method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-    /todo/date:
-        get:
-            summary: Get habits for a specific date
-            operationId: getTodoListByDate
-            security:
-                - bearerAuth: []
-            parameters:
-                - name: date
-                  in: query
-                  required: false
-                  description: Date in YYYY-MM-DD format. If not provided, uses current date.
-                  schema:
-                      type: string
-                      pattern: "^\\d{4}-\\d{2}-\\d{2}$"
-                      example: "2024-01-15"
-            responses:
-                "200":
-                    description: List of habits for the specified date (with todo metadata when applicable)
-                    content:
-                        application/json:
-                            schema:
-                                type: array
-                                items: { $ref: "#/components/schemas/TodoListItem" }
-                "401":
-                    description: Unauthorized
-                    content:
-                        application/json:
-                            schema: { $ref: "#/components/schemas/Error" }
-            x-amazon-apigateway-integration:
-                type: aws_proxy
-                httpMethod: POST
-                uri:
-                    Fn::Sub: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TodoLambdaFunction.Arn}/invocations"
-        options:
-            summary: CORS preflight
-            operationId: optionsTodoByDate
-            responses:
-                "200":
-                    description: CORS response
-                    headers:
-                        Access-Control-Allow-Origin:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Methods:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Headers:
-                            schema:
-                                type: string
-            x-amazon-apigateway-integration:
-                type: mock
-                requestTemplates:
-                    application/json: '{"statusCode": 200}'
-                responses:
-                    default:
-                        statusCode: "200"
-                        responseParameters:
-                            method.response.header.Access-Control-Allow-Origin: "'*'"
-                            method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-    /todo/summary:
-        get:
-            summary: Get daily summary of todos
-            operationId: getDailySummary
-            security:
-                - bearerAuth: []
-            parameters:
-                - name: startDate
-                  in: query
-                  required: true
-                  description: Start date in YYYY-MM-DD format
-                  schema:
-                      type: string
-                      pattern: "^\\d{4}-\\d{2}-\\d{2}$"
-                      example: "2024-01-01"
-                - name: endDate
-                  in: query
-                  required: true
-                  description: End date in YYYY-MM-DD format
-                  schema:
-                      type: string
-                      pattern: "^\\d{4}-\\d{2}-\\d{2}$"
-                      example: "2024-01-31"
-            responses:
-                "200":
-                    description: Daily summary of todos
-                    content:
-                        application/json:
-                            schema:
-                                type: array
-                                items: { $ref: "#/components/schemas/DailySummaryItem" }
-                "400":
-                    description: Bad request - startDate and endDate are required
-                    content:
-                        application/json:
-                            schema: { $ref: "#/components/schemas/Error" }
-                "401":
-                    description: Unauthorized
-                    content:
-                        application/json:
-                            schema: { $ref: "#/components/schemas/Error" }
-            x-amazon-apigateway-integration:
-                type: aws_proxy
-                httpMethod: POST
-                uri:
-                    Fn::Sub: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TodoLambdaFunction.Arn}/invocations"
-        options:
-            summary: CORS preflight
-            operationId: optionsTodoSummary
-            responses:
-                "200":
-                    description: CORS response
-                    headers:
-                        Access-Control-Allow-Origin:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Methods:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Headers:
-                            schema:
-                                type: string
-            x-amazon-apigateway-integration:
-                type: mock
-                requestTemplates:
-                    application/json: '{"statusCode": 200}'
-                responses:
-                    default:
-                        statusCode: "200"
-                        responseParameters:
-                            method.response.header.Access-Control-Allow-Origin: "'*'"
-                            method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-    /todo/{habitId}:
-        patch:
-            summary: Update todo status
-            operationId: updateTodoStatus
-            security:
-                - bearerAuth: []
-            parameters:
-                - name: habitId
-                  in: path
-                  required: true
-                  schema:
-                      type: string
-            requestBody:
-                content:
-                    application/json:
-                        schema: { $ref: "#/components/schemas/UpdateTodoStatusRequest" }
-            responses:
-                "204":
-                    description: Todo status updated successfully
-                "401":
-                    description: Unauthorized
-                    content:
-                        application/json:
-                            schema: { $ref: "#/components/schemas/Error" }
-                "404":
-                    description: Todo or habit not found
-                    content:
-                        application/json:
-                            schema: { $ref: "#/components/schemas/Error" }
-            x-amazon-apigateway-integration:
-                type: aws_proxy
-                httpMethod: POST
-                uri:
-                    Fn::Sub: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TodoLambdaFunction.Arn}/invocations"
-        options:
-            summary: CORS preflight
-            operationId: optionsTodoStatus
-            parameters:
-                - name: habitId
-                  in: path
-                  required: true
-                  schema:
-                      type: string
-            responses:
-                "200":
-                    description: CORS response
-                    headers:
-                        Access-Control-Allow-Origin:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Methods:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Headers:
-                            schema:
-                                type: string
-            x-amazon-apigateway-integration:
-                type: mock
-                requestTemplates:
-                    application/json: '{"statusCode": 200}'
-                responses:
-                    default:
-                        statusCode: "200"
-                        responseParameters:
-                            method.response.header.Access-Control-Allow-Origin: "'*'"
-                            method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS,PATCH'"
-                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-    /todo/{habitId}/notes:
-        patch:
-            summary: Update todo notes
-            operationId: updateTodoNotes
-            security:
-                - bearerAuth: []
-            parameters:
-                - name: habitId
-                  in: path
-                  required: true
-                  schema:
-                      type: string
-            requestBody:
-                content:
-                    application/json:
-                        schema: { $ref: "#/components/schemas/UpdateTodoNotesRequest" }
-            responses:
-                "204":
-                    description: Todo notes updated successfully
-                "401":
-                    description: Unauthorized
-                    content:
-                        application/json:
-                            schema: { $ref: "#/components/schemas/Error" }
-                "404":
-                    description: Todo or habit not found
-                    content:
-                        application/json:
-                            schema: { $ref: "#/components/schemas/Error" }
-            x-amazon-apigateway-integration:
-                type: aws_proxy
-                httpMethod: POST
-                uri:
-                    Fn::Sub: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TodoLambdaFunction.Arn}/invocations"
-        options:
-            summary: CORS preflight
-            operationId: optionsTodoNotes
-            parameters:
-                - name: habitId
-                  in: path
-                  required: true
-                  schema:
-                      type: string
-            responses:
-                "200":
-                    description: CORS response
-                    headers:
-                        Access-Control-Allow-Origin:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Methods:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Headers:
-                            schema:
-                                type: string
-            x-amazon-apigateway-integration:
-                type: mock
-                requestTemplates:
-                    application/json: '{"statusCode": 200}'
-                responses:
-                    default:
-                        statusCode: "200"
-                        responseParameters:
-                            method.response.header.Access-Control-Allow-Origin: "'*'"
-                            method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS,PATCH'"
-                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-    /stats/globalStreak:
-        get:
-            summary: Get global streak for the authenticated user
-            operationId: getGlobalStreak
-            security:
-                - bearerAuth: []
-            responses:
-                "200":
-                    description: Global streak (current streak of USER stats)
-                    content:
-                        application/json:
-                            schema:
-                                type: object
-                                properties:
-                                    currentStreak:
-                                        type: integer
-                                        description: Current streak in days
-                "401":
-                    description: Unauthorized
-                    content:
-                        application/json:
-                            schema: { $ref: "#/components/schemas/Error" }
-            x-amazon-apigateway-integration:
-                type: aws_proxy
-                httpMethod: POST
-                uri:
-                    Fn::Sub: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TodoLambdaFunction.Arn}/invocations"
-        options:
-            summary: CORS preflight
-            operationId: optionsStatsGlobalStreak
-            responses:
-                "200":
-                    description: CORS response
-                    headers:
-                        Access-Control-Allow-Origin:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Methods:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Headers:
-                            schema:
-                                type: string
-            x-amazon-apigateway-integration:
-                type: mock
-                requestTemplates:
-                    application/json: '{"statusCode": 200}'
-                responses:
-                    default:
-                        statusCode: "200"
-                        responseParameters:
-                            method.response.header.Access-Control-Allow-Origin: "'*'"
-                            method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-    /stats/dashboard:
-        get:
-            summary: Get consolidated dashboard data for the stats screen
-            operationId: getDashboard
-            security:
-                - bearerAuth: []
-            parameters:
-                - name: month
-                  in: query
-                  required: true
-                  description: Month in YYYY-MM format
-                  schema:
-                      type: string
-                      pattern: "^\\d{4}-\\d{2}$"
-                      example: "2025-01"
-                - name: categoryId
-                  in: query
-                  required: false
-                  description: Optional category filter
-                  schema:
-                      type: string
-                - name: habitId
-                  in: query
-                  required: false
-                  description: Optional habit filter
-                  schema:
-                      type: string
-                - name: selectedDate
-                  in: query
-                  required: false
-                  description: Optional selected date (YYYY-MM-DD); when provided, includes habitsForSelectedDate
-                  schema:
-                      type: string
-                      pattern: "^\\d{4}-\\d{2}-\\d{2}$"
-                      example: "2025-01-15"
-            responses:
-                "200":
-                    description: Dashboard data with completed dates, streaks, and optional habits list
-                    content:
-                        application/json:
-                            schema: { $ref: "#/components/schemas/DashboardResponse" }
-                "400":
-                    description: Bad request - month is required or invalid format
-                    content:
-                        application/json:
-                            schema: { $ref: "#/components/schemas/Error" }
-                "401":
-                    description: Unauthorized
-                    content:
-                        application/json:
-                            schema: { $ref: "#/components/schemas/Error" }
-            x-amazon-apigateway-integration:
-                type: aws_proxy
-                httpMethod: POST
-                uri:
-                    Fn::Sub: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TodoLambdaFunction.Arn}/invocations"
-        options:
-            summary: CORS preflight
-            operationId: optionsStatsDashboard
-            responses:
-                "200":
-                    description: CORS response
-                    headers:
-                        Access-Control-Allow-Origin:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Methods:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Headers:
-                            schema:
-                                type: string
-            x-amazon-apigateway-integration:
-                type: mock
-                requestTemplates:
-                    application/json: '{"statusCode": 200}'
-                responses:
-                    default:
-                        statusCode: "200"
-                        responseParameters:
-                            method.response.header.Access-Control-Allow-Origin: "'*'"
-                            method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                            method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
     /habits/{id}:
         get:
             summary: Get habit by ID
             operationId: getHabitById
             security:
-                - bearerAuth: []
+                - arjAuthorizer: []
             parameters:
                 - name: id
                   in: path
                   required: true
-                  schema:
-                      type: string
+                  schema: { type: string }
             responses:
                 "200":
                     description: Habit details
@@ -1143,13 +596,12 @@ paths:
             summary: Update habit
             operationId: updateHabit
             security:
-                - bearerAuth: []
+                - arjAuthorizer: []
             parameters:
                 - name: id
                   in: path
                   required: true
-                  schema:
-                      type: string
+                  schema: { type: string }
             requestBody:
                 content:
                     application/json:
@@ -1182,13 +634,12 @@ paths:
             summary: Delete habit
             operationId: deleteHabit
             security:
-                - bearerAuth: []
+                - arjAuthorizer: []
             parameters:
                 - name: id
                   in: path
                   required: true
-                  schema:
-                      type: string
+                  schema: { type: string }
             responses:
                 "200":
                     description: Habit deleted successfully
@@ -1214,21 +665,14 @@ paths:
                 - name: id
                   in: path
                   required: true
-                  schema:
-                      type: string
+                  schema: { type: string }
             responses:
                 "200":
                     description: CORS response
                     headers:
-                        Access-Control-Allow-Origin:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Methods:
-                            schema:
-                                type: string
-                        Access-Control-Allow-Headers:
-                            schema:
-                                type: string
+                        Access-Control-Allow-Origin: { schema: { type: string } }
+                        Access-Control-Allow-Methods: { schema: { type: string } }
+                        Access-Control-Allow-Headers: { schema: { type: string } }
             x-amazon-apigateway-integration:
                 type: mock
                 requestTemplates:
@@ -1238,5 +682,343 @@ paths:
                         statusCode: "200"
                         responseParameters:
                             method.response.header.Access-Control-Allow-Origin: "'*'"
-                            method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                            method.response.header.Access-Control-Allow-Methods: "'GET,PUT,DELETE,OPTIONS'"
+                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
+    /todo/date:
+        get:
+            summary: Get habits for a specific date
+            operationId: getTodoListByDate
+            security:
+                - arjAuthorizer: []
+            parameters:
+                - name: date
+                  in: query
+                  required: false
+                  schema: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$", example: "2024-01-15" }
+            responses:
+                "200":
+                    description: List of habits for the specified date
+                    content:
+                        application/json:
+                            schema:
+                                type: array
+                                items: { $ref: "#/components/schemas/TodoListItem" }
+                "401":
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema: { $ref: "#/components/schemas/Error" }
+            x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri:
+                    Fn::Sub: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TodoLambdaFunction.Arn}/invocations"
+        options:
+            summary: CORS preflight
+            operationId: optionsTodoByDate
+            responses:
+                "200":
+                    description: CORS response
+                    headers:
+                        Access-Control-Allow-Origin: { schema: { type: string } }
+                        Access-Control-Allow-Methods: { schema: { type: string } }
+                        Access-Control-Allow-Headers: { schema: { type: string } }
+            x-amazon-apigateway-integration:
+                type: mock
+                requestTemplates:
+                    application/json: '{"statusCode": 200}'
+                responses:
+                    default:
+                        statusCode: "200"
+                        responseParameters:
+                            method.response.header.Access-Control-Allow-Origin: "'*'"
+                            method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
+    /todo/summary:
+        get:
+            summary: Get daily summary of todos
+            operationId: getDailySummary
+            security:
+                - arjAuthorizer: []
+            parameters:
+                - name: startDate
+                  in: query
+                  required: true
+                  schema: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$", example: "2024-01-01" }
+                - name: endDate
+                  in: query
+                  required: true
+                  schema: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$", example: "2024-01-31" }
+            responses:
+                "200":
+                    description: Daily summary of todos
+                    content:
+                        application/json:
+                            schema:
+                                type: array
+                                items: { $ref: "#/components/schemas/DailySummaryItem" }
+                "400":
+                    description: Bad request
+                    content:
+                        application/json:
+                            schema: { $ref: "#/components/schemas/Error" }
+                "401":
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema: { $ref: "#/components/schemas/Error" }
+            x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri:
+                    Fn::Sub: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TodoLambdaFunction.Arn}/invocations"
+        options:
+            summary: CORS preflight
+            operationId: optionsTodoSummary
+            responses:
+                "200":
+                    description: CORS response
+                    headers:
+                        Access-Control-Allow-Origin: { schema: { type: string } }
+                        Access-Control-Allow-Methods: { schema: { type: string } }
+                        Access-Control-Allow-Headers: { schema: { type: string } }
+            x-amazon-apigateway-integration:
+                type: mock
+                requestTemplates:
+                    application/json: '{"statusCode": 200}'
+                responses:
+                    default:
+                        statusCode: "200"
+                        responseParameters:
+                            method.response.header.Access-Control-Allow-Origin: "'*'"
+                            method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
+    /todo/{habitId}:
+        patch:
+            summary: Update todo status
+            operationId: updateTodoStatus
+            security:
+                - arjAuthorizer: []
+            parameters:
+                - name: habitId
+                  in: path
+                  required: true
+                  schema: { type: string }
+            requestBody:
+                content:
+                    application/json:
+                        schema: { $ref: "#/components/schemas/UpdateTodoStatusRequest" }
+            responses:
+                "204":
+                    description: Todo status updated successfully
+                "401":
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema: { $ref: "#/components/schemas/Error" }
+                "404":
+                    description: Todo or habit not found
+                    content:
+                        application/json:
+                            schema: { $ref: "#/components/schemas/Error" }
+            x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri:
+                    Fn::Sub: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TodoLambdaFunction.Arn}/invocations"
+        options:
+            summary: CORS preflight
+            operationId: optionsTodoStatus
+            parameters:
+                - name: habitId
+                  in: path
+                  required: true
+                  schema: { type: string }
+            responses:
+                "200":
+                    description: CORS response
+                    headers:
+                        Access-Control-Allow-Origin: { schema: { type: string } }
+                        Access-Control-Allow-Methods: { schema: { type: string } }
+                        Access-Control-Allow-Headers: { schema: { type: string } }
+            x-amazon-apigateway-integration:
+                type: mock
+                requestTemplates:
+                    application/json: '{"statusCode": 200}'
+                responses:
+                    default:
+                        statusCode: "200"
+                        responseParameters:
+                            method.response.header.Access-Control-Allow-Origin: "'*'"
+                            method.response.header.Access-Control-Allow-Methods: "'PATCH,OPTIONS'"
+                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
+    /todo/{habitId}/notes:
+        patch:
+            summary: Update todo notes
+            operationId: updateTodoNotes
+            security:
+                - arjAuthorizer: []
+            parameters:
+                - name: habitId
+                  in: path
+                  required: true
+                  schema: { type: string }
+            requestBody:
+                content:
+                    application/json:
+                        schema: { $ref: "#/components/schemas/UpdateTodoNotesRequest" }
+            responses:
+                "204":
+                    description: Todo notes updated successfully
+                "401":
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema: { $ref: "#/components/schemas/Error" }
+                "404":
+                    description: Todo or habit not found
+                    content:
+                        application/json:
+                            schema: { $ref: "#/components/schemas/Error" }
+            x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri:
+                    Fn::Sub: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TodoLambdaFunction.Arn}/invocations"
+        options:
+            summary: CORS preflight
+            operationId: optionsTodoNotes
+            parameters:
+                - name: habitId
+                  in: path
+                  required: true
+                  schema: { type: string }
+            responses:
+                "200":
+                    description: CORS response
+                    headers:
+                        Access-Control-Allow-Origin: { schema: { type: string } }
+                        Access-Control-Allow-Methods: { schema: { type: string } }
+                        Access-Control-Allow-Headers: { schema: { type: string } }
+            x-amazon-apigateway-integration:
+                type: mock
+                requestTemplates:
+                    application/json: '{"statusCode": 200}'
+                responses:
+                    default:
+                        statusCode: "200"
+                        responseParameters:
+                            method.response.header.Access-Control-Allow-Origin: "'*'"
+                            method.response.header.Access-Control-Allow-Methods: "'PATCH,OPTIONS'"
+                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
+    /stats/globalStreak:
+        get:
+            summary: Get global streak for the authenticated user
+            operationId: getGlobalStreak
+            security:
+                - arjAuthorizer: []
+            responses:
+                "200":
+                    description: Global streak
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    currentStreak: { type: integer }
+                "401":
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema: { $ref: "#/components/schemas/Error" }
+            x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri:
+                    Fn::Sub: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TodoLambdaFunction.Arn}/invocations"
+        options:
+            summary: CORS preflight
+            operationId: optionsStatsGlobalStreak
+            responses:
+                "200":
+                    description: CORS response
+                    headers:
+                        Access-Control-Allow-Origin: { schema: { type: string } }
+                        Access-Control-Allow-Methods: { schema: { type: string } }
+                        Access-Control-Allow-Headers: { schema: { type: string } }
+            x-amazon-apigateway-integration:
+                type: mock
+                requestTemplates:
+                    application/json: '{"statusCode": 200}'
+                responses:
+                    default:
+                        statusCode: "200"
+                        responseParameters:
+                            method.response.header.Access-Control-Allow-Origin: "'*'"
+                            method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
+    /stats/dashboard:
+        get:
+            summary: Get consolidated dashboard data
+            operationId: getDashboard
+            security:
+                - arjAuthorizer: []
+            parameters:
+                - name: month
+                  in: query
+                  required: true
+                  schema: { type: string, pattern: "^\\d{4}-\\d{2}$", example: "2025-01" }
+                - name: categoryId
+                  in: query
+                  required: false
+                  schema: { type: string }
+                - name: habitId
+                  in: query
+                  required: false
+                  schema: { type: string }
+                - name: selectedDate
+                  in: query
+                  required: false
+                  schema: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$", example: "2025-01-15" }
+            responses:
+                "200":
+                    description: Dashboard data
+                    content:
+                        application/json:
+                            schema: { $ref: "#/components/schemas/DashboardResponse" }
+                "400":
+                    description: Bad request
+                    content:
+                        application/json:
+                            schema: { $ref: "#/components/schemas/Error" }
+                "401":
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema: { $ref: "#/components/schemas/Error" }
+            x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri:
+                    Fn::Sub: "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TodoLambdaFunction.Arn}/invocations"
+        options:
+            summary: CORS preflight
+            operationId: optionsStatsDashboard
+            responses:
+                "200":
+                    description: CORS response
+                    headers:
+                        Access-Control-Allow-Origin: { schema: { type: string } }
+                        Access-Control-Allow-Methods: { schema: { type: string } }
+                        Access-Control-Allow-Headers: { schema: { type: string } }
+            x-amazon-apigateway-integration:
+                type: mock
+                requestTemplates:
+                    application/json: '{"statusCode": 200}'
+                responses:
+                    default:
+                        statusCode: "200"
+                        responseParameters:
+                            method.response.header.Access-Control-Allow-Origin: "'*'"
+                            method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+                            method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"

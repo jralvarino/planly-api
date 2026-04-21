@@ -1,30 +1,3 @@
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
-import { Route } from "@middy/http-router";
-import middy from "@middy/core";
-import { AuthService } from "../services/AuthService.js";
-import { success } from "../utils/response.util.js";
-import { loginSchema } from "../schemas/auth.schemas.js";
-import { zodValidator } from "../middlewares/zod-validator.middleware.js";
-import { container } from "../container.js";
-import { logger } from "../utils/logger.js";
-
-const authService = container.resolve(AuthService);
-
-const login = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
-    .use(zodValidator(loginSchema))
-    .handler(async (event) => {
-        const { body } = (event as APIGatewayProxyEvent & { validated: { body: { user: string; password: string } } })
-            .validated;
-
-        const token = await authService.login(body.user, body.password);
-
-        return success({ token });
-    });
-
-export const authRoutes: Route<APIGatewayProxyEvent, APIGatewayProxyResult>[] = [
-    {
-        method: "POST",
-        path: "/auth/login",
-        handler: login,
-    },
-];
+// Auth is handled by the arj-auth-service Lambda Authorizer.
+// This file is intentionally empty.
+export const authRoutes = [] as never[];

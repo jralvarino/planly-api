@@ -8,7 +8,7 @@ import {
     deleteCategorySchema,
 } from "../schemas/category.schemas.js";
 import { CategoryService } from "../services/CategoryService.js";
-import { authMiddleware, getUserId } from "../middlewares/auth.middleware.js";
+import { getUserId } from "../middlewares/auth.middleware.js";
 import { zodValidator } from "../middlewares/zod-validator.middleware.js";
 import { created, success } from "../utils/response.util.js";
 import { container } from "../container.js";
@@ -17,7 +17,6 @@ import { logger } from "../utils/logger.js";
 const categoryService = container.resolve(CategoryService);
 
 const createCategory = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
-    .use(authMiddleware())
     .use(zodValidator(createCategorySchema))
     .handler(async (event) => {
         const userId = getUserId(event);
@@ -29,7 +28,6 @@ const createCategory = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     });
 
 const updateCategory = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
-    .use(authMiddleware())
     .use(zodValidator(updateCategorySchema))
     .handler(async (event) => {
         const userId = getUserId(event);
@@ -43,7 +41,6 @@ const updateCategory = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     });
 
 const getAllCategories = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
-    .use(authMiddleware())
     .handler(async (event) => {
         const userId = getUserId(event);
 
@@ -53,7 +50,6 @@ const getAllCategories = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     });
 
 const getCategoryById = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
-    .use(authMiddleware())
     .use(zodValidator(getCategoryByIdSchema))
     .handler(async (event) => {
         const userId = getUserId(event);
@@ -66,7 +62,6 @@ const getCategoryById = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     });
 
 const deleteCategory = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
-    .use(authMiddleware())
     .use(zodValidator(deleteCategorySchema))
     .handler(async (event) => {
         const userId = getUserId(event);

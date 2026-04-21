@@ -2,7 +2,7 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { Route } from "@middy/http-router";
 import middy from "@middy/core";
 import { HabitService } from "../services/HabitService.js";
-import { authMiddleware, getUserId } from "../middlewares/auth.middleware.js";
+import { getUserId } from "../middlewares/auth.middleware.js";
 import { zodValidator } from "../middlewares/zod-validator.middleware.js";
 import {
     createHabitSchema,
@@ -17,7 +17,6 @@ import { logger } from "../utils/logger.js";
 const habitService = container.resolve(HabitService);
 
 const createHabit = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
-    .use(authMiddleware())
     .use(zodValidator(createHabitSchema))
     .handler(async (event) => {
         const userId = getUserId(event);
@@ -29,7 +28,6 @@ const createHabit = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     });
 
 const updateHabit = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
-    .use(authMiddleware())
     .use(zodValidator(updateHabitSchema))
     .handler(async (event) => {
         const userId = getUserId(event);
@@ -42,7 +40,6 @@ const updateHabit = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     });
 
 const getAllHabits = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
-    .use(authMiddleware())
     .handler(async (event) => {
         const userId = getUserId(event);
         const categoryId = event.queryStringParameters?.categoryId;
@@ -53,7 +50,6 @@ const getAllHabits = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     });
 
 const getHabitById = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
-    .use(authMiddleware())
     .use(zodValidator(getHabitByIdSchema))
     .handler(async (event) => {
         const userId = getUserId(event);
@@ -65,7 +61,6 @@ const getHabitById = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     });
 
 const deleteHabit = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
-    .use(authMiddleware())
     .use(zodValidator(deleteHabitSchema))
     .handler(async (event) => {
         const userId = getUserId(event);

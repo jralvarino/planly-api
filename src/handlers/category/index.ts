@@ -8,14 +8,13 @@ import { injectLambdaContext } from "@aws-lambda-powertools/logger/middleware";
 import { captureLambdaHandler } from "@aws-lambda-powertools/tracer/middleware";
 
 import { routes } from "../../controllers/category.controller.js";
-import { authRoutes } from "../../controllers/auth.controller.js";
 import { routes as userRoutes } from "../../controllers/user.controller.js";
 import { logger } from "../../utils/logger.js";
 import { tracer } from "../../utils/tracer.js";
 import { globalExceptionHandler } from "../../middlewares/global-exception-handler.middleware.js";
 import { requestLoggingMiddleware } from "../../middlewares/request-logging.middleware.js";
 
-const allRoutes = [...authRoutes, ...userRoutes, ...routes];
+const allRoutes = [...userRoutes, ...routes];
 
 const handler = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(captureLambdaHandler(tracer))

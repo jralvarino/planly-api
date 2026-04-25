@@ -9,95 +9,119 @@
 ![Vitest](https://img.shields.io/badge/Vitest-6E9F18?style=flat&logo=vitest&logoColor=white)
 ![Zod](https://img.shields.io/badge/Zod-3E67B1?style=flat&logo=zod&logoColor=white)
 
-Backend da aplicação **Planly** — plataforma de rastreamento de hábitos. A API gerencia hábitos, categorias, to-dos diários e estatísticas de streaks, exposta via AWS API Gateway com funções Lambda independentes por domínio.
+Backend of the **Planly** application — a habit tracking platform. The API manages habits, categories, daily to-dos, and streak statistics, exposed through AWS API Gateway with independent Lambda functions per domain.
 
-**Repositórios relacionados:**
-- [`common-utils-layer`](../common-utils-layer) — layer compartilhada com utilitários, middlewares e repositórios comuns
-- [`planly`](../planly) — aplicativo mobile React Native / Expo
-
----
-
-## Como funciona
-
-A API segue uma arquitetura serverless orientada a domínios:
-
-- **4 funções Lambda** independentes: `category`, `habit`, `todo+stats` e `stats-midnight`
-- Cada handler usa **Middy** com uma cadeia de middlewares: tracing → logging → body parsing → autenticação → roteamento → tratamento de erros
-- Autenticação delegada ao **arj-auth-service** (Lambda Authorizer externo), que injeta o `userId` no contexto da requisição
-- Persistência no **DynamoDB** com design single-table nos domínios `todo` e `stats`
-- `stats-midnight` é um job agendado (EventBridge) que recalcula streaks diariamente às 00:01 (GMT-3) para hábitos sem ação registrada no dia anterior
-
-```
-API Gateway → Lambda Authorizer (arj-auth-service)
-                     ↓
-           Lambda (category | habit | todo | stats)
-                     ↓
-                DynamoDB
-```
+**Related repositories:**
+- [`arj-auth-service`](../arj-auth-service) — Lambda Authorizer that validates JWT tokens and injects `userId` into the request context
+- [`common-utils-layer`](../common-utils-layer) — shared Lambda layer with utilities, middlewares, and common repositories
+- [`planly`](../planly) — React Native / Expo mobile app
 
 ---
 
-## Subindo localmente via Docker
+## How it works
 
-### Pré-requisitos
+The API follows a serverless, domain-driven architecture with four independent Lambda functions (`category`, `habit`, `todo+stats`, `stats-midnight`). Every HTTP request flows through a fixed middleware chain before reaching business logic. Authentication is fully delegated to the external `arj-auth-service` Lambda Authorizer, which validates the JWT and injects the `userId` so the functions never handle tokens directly. Persistence uses DynamoDB, with a single-table design for the `todo` and `stats` domains. The `stats-midnight` function is an EventBridge-scheduled job that runs daily at 00:01 (GMT-3) to recalculate streaks for any habit the user did not interact with the day before.
 
-- [Docker](https://www.docker.com/) e Docker Compose
+## Architecture
+
+```mermaid
+flowchart TD
+    FE["📱 Frontend\n(planly — React Native)"]
+    AGW["🌐 API Gateway\nREST — prod stage"]
+    AUTH["🔐 Lambda Authorizer\n(arj-auth-service)\nValidates JWT → injects userId"]
+    LAMBDA["⚡ Lambda Function\ncategory | habit | todo | stats"]
+
+    subgraph MW ["Middy Middleware Chain"]
+        direction TB
+        M1["Tracer (Powertools)"]
+        M2["Logger (Powertools)"]
+        M3["JSON Body Parser"]
+        M4["HTTP Event Normalizer"]
+        M5["Request Logging"]
+        M6["Extract User ID"]
+        M7["Global Exception Handler"]
+        M1 --> M2 --> M3 --> M4 --> M5 --> M6 --> M7
+    end
+
+    CTRL["🗂 Controller\nRoute matching + request extraction"]
+    SVC["⚙️ Service\nBusiness logic"]
+    REPO["🗄 Repository\nDynamoDB queries"]
+    DB[("DynamoDB")]
+
+    FE -->|"HTTPS + JWT"| AGW
+    AGW -->|"Authorize request"| AUTH
+    AUTH -->|"200 OK + userId context"| AGW
+    AGW -->|"Invoke"| LAMBDA
+    LAMBDA --> MW
+    M7 -->|"Matched route"| CTRL
+    CTRL --> SVC
+    SVC --> REPO
+    REPO --> DB
+```
+
+---
+
+## Running locally with Docker
+
+### Prerequisites
+
+- [Docker](https://www.docker.com/) and Docker Compose
 - [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html)
 - Node.js 20+
 
-### 1. Instalar as imagens e subir os containers
+### 1. Pull images and start containers
 
 ```bash
 npm run docker:up
 ```
 
-Isso sobe o **DynamoDB Local** na porta `8000` na rede `planly-network`.
+Starts **DynamoDB Local** on port `8000` inside the `planly-network` bridge network.
 
-### 2. Popular as tabelas
+### 2. Create and seed tables
 
 ```bash
 npm run docker:init-db
 ```
 
-O script cria todas as tabelas necessárias no DynamoDB Local:
+Creates all required DynamoDB tables:
 
-| Tabela | Chave | GSIs |
-|--------|-------|------|
+| Table | Primary Key | GSIs |
+|-------|-------------|------|
 | `user` | `userId` | — |
 | `planly-category` | `id` | `userId-index` |
 | `planly-habit` | `id` | `userId-index`, `userId-start_date-index` |
 | `planly-todo` | `PK` / `SK` | `habitId-index`, `userId-date-index` |
 | `planly-stats` | `PK` / `SK` | — |
 
-Para inserir um usuário de teste:
+To insert a test user:
 
 ```bash
 DYNAMODB_ENDPOINT=http://localhost:8000 ./scripts/populate-user.sh
 ```
 
-### 3. Iniciar a API localmente
+### 3. Start the local API
 
 ```bash
 npm run dev
 ```
 
-A API sobe em `http://localhost:3000` via SAM Local.
+API available at `http://localhost:3000` via SAM Local.
 
-Para rodar com debugger na porta `9229`:
+To start with debugger on port `9229`:
 
 ```bash
 npm run dev:debug
 ```
 
-### 4. Visualizar a documentação Swagger
+### 4. Browse the Swagger docs
 
 ```bash
 npm run swagger
 ```
 
-Disponível em `http://localhost:8080`.
+Available at `http://localhost:8080`.
 
-### Parar os containers
+### Stop containers
 
 ```bash
 npm run docker:down
@@ -105,53 +129,54 @@ npm run docker:down
 
 ---
 
-## Compilar
+## Build
 
 ```bash
 npm run build
 ```
 
-Compila o TypeScript de `src/` para `dist/` com as configurações de `tsconfig.json`.
+Compiles TypeScript from `src/` to `dist/` using `tsconfig.json`.
 
 ---
 
-## Rodar os testes unitários
+## Unit tests
 
 ```bash
 npm test
 ```
 
-Para modo watch durante o desenvolvimento:
+Watch mode for development:
 
 ```bash
 npm run test:watch
 ```
 
-Para gerar relatório de cobertura (threshold mínimo: 80%):
+Coverage report (minimum threshold: 80%):
 
 ```bash
 npm run test:coverage
 ```
 
-Os testes ficam em `tests/` e utilizam **Vitest** com mocks via `vi.mock`.
+Tests live under `tests/` and use **Vitest** with `vi.mock` for dependency isolation.
 
 ---
 
-## Deploy na AWS
+## Deploy to AWS
 
-### Pré-requisitos
+### Prerequisites
 
-- AWS CLI configurado com as credenciais corretas
-- SAM CLI instalado
-- Permissões para criar Lambda, API Gateway, DynamoDB e IAM Roles
+- AWS CLI configured with the appropriate credentials
+- SAM CLI installed
+- Permissions to create Lambda, API Gateway, DynamoDB tables, and IAM Roles
+- `arj-auth-service` already deployed (its Lambda ARN is read from SSM at `/arj-auth/authorizer-function-arn`)
 
-### Executar o deploy
+### Run the deploy
 
 ```bash
 npm run deploy
 ```
 
-O script executa internamente:
+This script runs:
 
 ```bash
 npm run build
@@ -159,16 +184,18 @@ sam build --template-file deployment/template.yaml
 sam deploy --capabilities CAPABILITY_NAMED_IAM
 ```
 
-As configurações de deploy ficam em `deployment/samconfig.toml` (stack `planly-api`, região `us-east-1`).
+Deploy configuration is in `deployment/samconfig.toml` (stack `planly-api`, region `us-east-1`).
 
-### Recursos criados na AWS
+### AWS resources created
 
-- API Gateway REST (`PlanlyApi`) com stage `prod`
-- 4 funções Lambda com IAM Roles dedicadas
-- Agendamento EventBridge para o job de meia-noite
-- Integração com o Lambda Authorizer externo (`arj-auth-service`) via SSM Parameter Store
+| Resource | Details |
+|----------|---------|
+| API Gateway | REST API `PlanlyApi` — stage `prod` |
+| Lambda × 4 | `category`, `habit`, `todo`, `stats-midnight` with dedicated IAM Roles |
+| EventBridge Schedule | Triggers `stats-midnight` daily at 00:01 GMT-3 |
+| IAM Roles | One per Lambda + one for the EventBridge scheduler |
 
-A URL da API é exibida como output do stack após o deploy:
+The API URL is printed as a stack output after deploy:
 
 ```
 https://{api-id}.execute-api.us-east-1.amazonaws.com/prod/
@@ -176,15 +203,15 @@ https://{api-id}.execute-api.us-east-1.amazonaws.com/prod/
 
 ---
 
-## Variáveis de ambiente
+## Environment variables
 
-Usadas no ambiente local via `deployment/env.json`:
+Used locally via `deployment/env.json`:
 
-| Variável | Descrição |
-|----------|-----------|
-| `AWS_REGION` | Região AWS (`us-east-1`) |
-| `NODE_ENV` | Ambiente (`development`) |
-| `DYNAMODB_ENDPOINT` | Endpoint do DynamoDB Local (`http://dynamodb:8000`) |
-| `POWERTOOLS_LOG_LEVEL` | Nível de log (`DEBUG`) |
+| Variable | Description |
+|----------|-------------|
+| `AWS_REGION` | AWS region (`us-east-1`) |
+| `NODE_ENV` | Runtime environment (`development`) |
+| `DYNAMODB_ENDPOINT` | DynamoDB Local endpoint (`http://dynamodb:8000`) |
+| `POWERTOOLS_LOG_LEVEL` | Log verbosity (`DEBUG`) |
 
-Em produção, as variáveis são gerenciadas pelo SAM template e AWS Secrets Manager.
+In production, variables are managed by the SAM template and AWS Secrets Manager.

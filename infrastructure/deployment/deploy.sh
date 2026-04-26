@@ -5,8 +5,9 @@
 
 set -e
 
-# Navegar para o diretório do script
-cd "$(dirname "$0")"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+AWS_DIR="$ROOT_DIR/infrastructure/aws"
 
 STACK_NAME="planly-api"
 REGION=${AWS_REGION:-us-east-1}
@@ -16,12 +17,12 @@ echo "🌍 Região: ${REGION}"
 
 # Build do projeto (na raiz do projeto)
 echo "🔨 Compilando TypeScript..."
-cd ..
+cd "$ROOT_DIR"
 npm run build
-cd deployment
 
 # Build do SAM
 echo "📦 Empacotando com SAM..."
+cd "$AWS_DIR"
 sam build --template-file template.yaml
 
 # Deploy
@@ -32,8 +33,7 @@ sam deploy \
   --region ${REGION} \
   --parameter-overrides AWSRegion=${REGION} \
   --capabilities CAPABILITY_NAMED_IAM \
-  --resolve-s3 \
-  --confirm-changeset
+  --resolve-s3
 
 echo "✅ Deploy concluído!"
 echo "📋 Para ver os outputs do stack, execute:"

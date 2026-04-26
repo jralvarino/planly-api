@@ -26,10 +26,10 @@ The API follows a serverless, domain-driven architecture with four independent L
 
 ```mermaid
 flowchart TD
-    FE["📱 Frontend\n(planly — React Native)"]
-    AGW["🌐 API Gateway\nREST — prod stage"]
-    AUTH["🔐 Lambda Authorizer\n(arj-auth-service)\nValidates JWT → injects userId"]
-    LAMBDA["⚡ Lambda Function\ncategory | habit | todo | stats"]
+    FE["📱 Frontend\n(planly)"]
+    AGW["API Gateway"]
+    AUTH["Lambda Authorizer\n(arj-auth-service)\n"]
+    LAMBDA["Lambda Functions"]
 
     subgraph MW ["Middy Middleware Chain"]
         direction TB
@@ -43,9 +43,9 @@ flowchart TD
         M1 --> M2 --> M3 --> M4 --> M5 --> M6 --> M7
     end
 
-    CTRL["🗂 Controller\nRoute matching + request extraction"]
-    SVC["⚙️ Service\nBusiness logic"]
-    REPO["🗄 Repository\nDynamoDB queries"]
+    CTRL["Controller\nroute matching"]
+    SVC["Service\nbusiness logic"]
+    REPO["Repository\nDynamoDB queries"]
     DB[("DynamoDB")]
 
     FE -->|"HTTPS + JWT"| AGW

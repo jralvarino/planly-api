@@ -1,9 +1,11 @@
 import { injectable } from "tsyringe";
-import { DeleteCommand, GetCommand, PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { ddb } from "../db/dynamoClient.js";
+import { DeleteCommand, GetCommand, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { ddb } from "@arj/common-utils-layer/db";
+import { createLogger } from "@arj/common-utils-layer/util";
 import { Category } from "../models/Category.js";
-import { DYNAMO_TABLES } from "../db/dynamodb.tables.js";
-import { logger } from "../utils/logger.js";
+import { DYNAMO_TABLES } from "../constants/todo.constants.js";
+
+const logger = createLogger("planly-api");
 
 @injectable()
 export class CategoryRepository {

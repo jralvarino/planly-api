@@ -1,7 +1,7 @@
 import { StatsScope } from "../../models/Stats.js";
 import { Habit } from "../../models/Habit.js";
 import { todayISO } from "../../utils/util.js";
-import { BadRequestError } from "../../errors/PlanlyError.js";
+import { BadRequestError } from "@arj/common-utils-layer/error";
 
 export function generatePK(userId: string): string {
     return `USER#${userId}`;

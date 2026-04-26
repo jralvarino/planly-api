@@ -1,15 +1,17 @@
 import "../../container.js";
 import type { ScheduledHandler } from "aws-lambda";
 import { addDays, todayISO } from "../../utils/util.js";
-import { UserRepository } from "../../repositories/UserRepository.js";
+import { UserService } from "@arj/common-utils-layer/service";
 import { TodoRepository } from "../../repositories/TodoRepository.js";
 import { TodoService } from "../../services/TodoService.js";
 import { StatsService } from "../../services/StatsService.js";
-import { logger } from "../../utils/logger.js";
+import { createLogger } from "@arj/common-utils-layer/util";
+
+const logger = createLogger("planly-api");
 import { TODO_STATUS } from "../../constants/todo.constants.js";
 import { container } from "../../container.js";
 
-const userRepository = container.resolve(UserRepository);
+const userService = container.resolve(UserService);
 const todoRepository = container.resolve(TodoRepository);
 const todoService = container.resolve(TodoService);
 const statsService = container.resolve(StatsService);
@@ -25,7 +27,7 @@ export const handler: ScheduledHandler = async (): Promise<void> => {
 
     logger.info("Stats midnight job started", { today, yesterday });
 
-    const users = await userRepository.findAll();
+    const users = await userService.getAllUsers();
     if (users.length === 0) {
         logger.info("Stats midnight job: no users found, exiting");
         return;

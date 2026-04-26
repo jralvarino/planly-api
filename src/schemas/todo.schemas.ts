@@ -15,7 +15,6 @@ export const updateTodoStatusSchema = z.object({
     }),
 });
 
-export type UpdateTodoStatusInput = z.infer<typeof updateTodoStatusSchema>;
 
 export const updateTodoNotesSchema = z.object({
     body: z.object({
@@ -27,4 +26,3 @@ export const updateTodoNotesSchema = z.object({
     }),
 });
 
-export type UpdateTodoNotesInput = z.infer<typeof updateTodoNotesSchema>;

@@ -15,9 +15,9 @@ const {
     mockTodayISO: vi.fn(),
 }));
 
-vi.mock("../../../src/repositories/UserRepository.js", () => ({
-    UserRepository: vi.fn().mockImplementation(() => ({
-        findAll: mockFindAllUsers,
+vi.mock("@arj/common-utils-layer/service", () => ({
+    UserService: vi.fn().mockImplementation(() => ({
+        getAllUsers: mockFindAllUsers,
     })),
 }));
 

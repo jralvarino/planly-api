@@ -3,8 +3,10 @@ import { TodoRepository } from "../../repositories/TodoRepository.js";
 import { HabitService } from "../HabitService.js";
 import { Habit } from "../../models/Habit.js";
 import { TODO_STATUS } from "../../constants/todo.constants.js";
-import { addDays, todayISO } from "../../utils/util.js";
-import { logger } from "../../utils/logger.js";
+import { todayISO } from "../../utils/util.js";
+import { createLogger } from "@arj/common-utils-layer/util";
+
+const logger = createLogger("planly-api");
 import { computeFullStreakStats, computeStreakUpTo } from "./StreakCalculator.js";
 import { getCompletedDatesFromTodoList } from "./completedDates.js";
 import { generatePK, generateSK, getEndDate } from "./StatsKeyGenerator.js";
@@ -105,7 +107,7 @@ export class HabitStatsUpdater {
     }
 
     async recalculate(userId: string, habitId: string): Promise<void> {
-        const { repository, todoRepository, habitService, getHabitStats } = this.params;
+        const { repository, todoRepository, habitService } = this.params;
 
         logger.info("Recalculating stats for habit", { userId, habitId });
 

@@ -4,12 +4,14 @@ import { Habit } from "../models/Habit.js";
 import { TodoList } from "../models/TodoList.js";
 import { Todo } from "../models/Todo.js";
 import { TodoRepository } from "../repositories/TodoRepository.js";
-import { NotFoundError } from "../errors/PlanlyError.js";
+import { NotFoundError } from "@arj/common-utils-layer/error";
+import { createLogger } from "@arj/common-utils-layer/util";
 import { parseDayOfWeek } from "../utils/util.js";
 import { datesRange } from "../utils/util.js";
 import { TODO_STATUS, TODO_STATUS_ORDER, TODO_PERIOD_ORDER, TodoStatus } from "../constants/todo.constants.js";
 import { StatsService } from "./StatsService.js";
-import { logger } from "../utils/logger.js";
+
+const logger = createLogger("planly-api");
 
 export interface UpdateStatusParams {
     userId: string;

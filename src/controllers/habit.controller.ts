@@ -2,24 +2,26 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { Route } from "@middy/http-router";
 import middy from "@middy/core";
 import { HabitService } from "../services/HabitService.js";
-import { getUserId } from "../middlewares/auth.middleware.js";
-import { zodValidator } from "../middlewares/zod-validator.middleware.js";
+import { zodValidator } from "@arj/common-utils-layer/middleware";
+import type { WithUserId } from "@arj/common-utils-layer/middleware";
 import {
     createHabitSchema,
     updateHabitSchema,
     getHabitByIdSchema,
     deleteHabitSchema,
 } from "../schemas/habit.schemas.js";
-import { created, success } from "../utils/response.util.js";
+import { created, success } from "@arj/common-utils-layer/util";
 import { container } from "../container.js";
-import { logger } from "../utils/logger.js";
+
 
 const habitService = container.resolve(HabitService);
+
+type EventWithUser = APIGatewayProxyEvent & WithUserId;
 
 const createHabit = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(zodValidator(createHabitSchema))
     .handler(async (event) => {
-        const userId = getUserId(event);
+        const { userId } = event as EventWithUser;
         const body = ((event.body ?? {}) as Record<string, unknown>) || {};
 
         const habit = await habitService.create(userId, body);
@@ -30,7 +32,7 @@ const createHabit = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
 const updateHabit = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(zodValidator(updateHabitSchema))
     .handler(async (event) => {
-        const userId = getUserId(event);
+        const { userId } = event as EventWithUser;
         const id = event.pathParameters!.id!;
         const body = ((event.body ?? {}) as Record<string, unknown>) || {};
 
@@ -41,7 +43,7 @@ const updateHabit = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
 
 const getAllHabits = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .handler(async (event) => {
-        const userId = getUserId(event);
+        const { userId } = event as EventWithUser;
         const categoryId = event.queryStringParameters?.categoryId;
 
         const habits = await habitService.getAllHabits(userId, categoryId);
@@ -52,7 +54,7 @@ const getAllHabits = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
 const getHabitById = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(zodValidator(getHabitByIdSchema))
     .handler(async (event) => {
-        const userId = getUserId(event);
+        const { userId } = event as EventWithUser;
         const id = event.pathParameters!.id!;
 
         const habit = await habitService.getHabitById(userId, id);
@@ -63,7 +65,7 @@ const getHabitById = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
 const deleteHabit = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(zodValidator(deleteHabitSchema))
     .handler(async (event) => {
-        const userId = getUserId(event);
+        const { userId } = event as EventWithUser;
         const id = event.pathParameters!.id!;
 
         await habitService.delete(userId, id);

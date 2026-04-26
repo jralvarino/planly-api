@@ -8,13 +8,11 @@ import { injectLambdaContext } from "@aws-lambda-powertools/logger/middleware";
 import { captureLambdaHandler } from "@aws-lambda-powertools/tracer/middleware";
 
 import { routes } from "../../controllers/category.controller.js";
-import { routes as userRoutes } from "../../controllers/user.controller.js";
-import { logger } from "../../utils/logger.js";
+import { createLogger } from "@arj/common-utils-layer/util";
+import { globalExceptionHandler, requestLoggingMiddleware, extractUserIdMiddleware } from "@arj/common-utils-layer/middleware";
 import { tracer } from "../../utils/tracer.js";
-import { globalExceptionHandler } from "../../middlewares/global-exception-handler.middleware.js";
-import { requestLoggingMiddleware } from "../../middlewares/request-logging.middleware.js";
 
-const allRoutes = [...userRoutes, ...routes];
+const logger = createLogger("planly-api");
 
 const handler = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(captureLambdaHandler(tracer))
@@ -22,8 +20,9 @@ const handler = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(jsonBodyParser({ disableContentTypeCheck: true } as any))
     .use(httpEventNormalizer())
     .use(requestLoggingMiddleware())
+    .use(extractUserIdMiddleware())
     .use(globalExceptionHandler())
-    .handler(httpRouterHandler(allRoutes));
+    .handler(httpRouterHandler(routes));
 
 export { handler };
 export default handler;

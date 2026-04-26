@@ -49,6 +49,7 @@
         "vitest": "^2.1.9"
     },
     "dependencies": {
+        "@arj/common-utils-layer": "file:../common-utils-layer/arj-common-utils-layer-1.0.4.tgz",
         "@aws-lambda-powertools/logger": "^2.30.2",
         "@aws-lambda-powertools/tracer": "^2.30.2",
         "@aws-sdk/client-dynamodb": "^3.956.0",

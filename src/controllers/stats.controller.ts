@@ -2,25 +2,27 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { Route } from "@middy/http-router";
 import middy from "@middy/core";
 import { StatsService } from "../services/StatsService.js";
-import { getUserId } from "../middlewares/auth.middleware.js";
-import { zodValidator } from "../middlewares/zod-validator.middleware.js";
+import { zodValidator } from "@arj/common-utils-layer/middleware";
+import type { WithUserId } from "@arj/common-utils-layer/middleware";
 import { getDashboardSchema } from "../schemas/stats.schemas.js";
-import { success } from "../utils/response.util.js";
+import { success } from "@arj/common-utils-layer/util";
 import { container } from "../container.js";
-import { logger } from "../utils/logger.js";
+
 
 const statsService = container.resolve(StatsService);
 
+type EventWithUser = APIGatewayProxyEvent & WithUserId;
+
 const getGlobalStreak = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .handler(async (event) => {
-        const userId = getUserId(event);
+        const { userId } = event as EventWithUser;
 
         const currentStreak = await statsService.getGlobalStreak(userId);
 
         return success({ currentStreak });
     });
 
-type ValidatedDashboard = APIGatewayProxyEvent & {
+type ValidatedDashboard = EventWithUser & {
     validated: {
         queryStringParameters: { month: string; categoryId?: string; habitId?: string; selectedDate?: string };
     };
@@ -29,9 +31,8 @@ type ValidatedDashboard = APIGatewayProxyEvent & {
 const getDashboard = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     .use(zodValidator(getDashboardSchema))
     .handler(async (event) => {
-        const userId = getUserId(event);
-        const { month, categoryId, habitId, selectedDate } = (event as ValidatedDashboard).validated
-            .queryStringParameters;
+        const { userId, validated } = event as ValidatedDashboard;
+        const { month, categoryId, habitId, selectedDate } = validated.queryStringParameters;
 
         const data = await statsService.getDashboardData(userId, month, categoryId, habitId, selectedDate);
 

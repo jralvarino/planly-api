@@ -6,7 +6,6 @@ export const createCategorySchema = z.object({
     }),
 });
 
-export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
 
 export const updateCategorySchema = z.object({
     body: z.object({
@@ -17,7 +16,6 @@ export const updateCategorySchema = z.object({
     }),
 });
 
-export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>;
 
 export const getCategoryByIdSchema = z.object({
     pathParameters: z.object({
@@ -25,7 +23,6 @@ export const getCategoryByIdSchema = z.object({
     }),
 });
 
-export type GetCategoryByIdInput = z.infer<typeof getCategoryByIdSchema>;
 
 export const deleteCategorySchema = z.object({
     pathParameters: z.object({
@@ -33,4 +30,3 @@ export const deleteCategorySchema = z.object({
     }),
 });
 
-export type DeleteCategoryInput = z.infer<typeof deleteCategorySchema>;

@@ -23,7 +23,6 @@ export const createHabitSchema = z.object({
     }),
 });
 
-export type CreateHabitInput = z.infer<typeof createHabitSchema>;
 
 export const updateHabitSchema = z.object({
     body: z.object({
@@ -47,7 +46,6 @@ export const updateHabitSchema = z.object({
     }),
 });
 
-export type UpdateHabitInput = z.infer<typeof updateHabitSchema>;
 
 export const getHabitByIdSchema = z.object({
     pathParameters: z.object({
@@ -55,7 +53,6 @@ export const getHabitByIdSchema = z.object({
     }),
 });
 
-export type GetHabitByIdInput = z.infer<typeof getHabitByIdSchema>;
 
 export const deleteHabitSchema = z.object({
     pathParameters: z.object({
@@ -63,4 +60,3 @@ export const deleteHabitSchema = z.object({
     }),
 });
 
-export type DeleteHabitInput = z.infer<typeof deleteHabitSchema>;

@@ -1,13 +1,15 @@
 import { injectable } from "tsyringe";
 import { HabitRepository } from "../repositories/HabitRepository.js";
 import { Habit } from "../models/Habit.js";
-import { NotFoundError } from "../errors/PlanlyError.js";
+import { NotFoundError } from "@arj/common-utils-layer/error";
+import { createLogger } from "@arj/common-utils-layer/util";
 import { v4 as uuidv4 } from "uuid";
 import { StatsService } from "./StatsService.js";
 import { TodoRepository } from "../repositories/TodoRepository.js";
 import { isValidForTargetDate } from "./TodoService.js";
 import { container } from "../container.js";
-import { logger } from "../utils/logger.js";
+
+const logger = createLogger("planly-api");
 import { todayISO } from "../utils/util.js";
 
 @injectable()

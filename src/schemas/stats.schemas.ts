@@ -12,4 +12,3 @@ export const getDashboardSchema = z.object({
     }),
 });
 
-export type GetDashboardInput = z.infer<typeof getDashboardSchema>;

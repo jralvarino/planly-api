@@ -1,8 +1,10 @@
 import { injectable } from "tsyringe";
 import { StatsRepository } from "../repositories/StatsRepository.js";
 import { Stats, StatsScope } from "../models/Stats.js";
-import { logger } from "../utils/logger.js";
-import { InternalServerError, NotFoundError } from "../errors/PlanlyError.js";
+import { createLogger } from "@arj/common-utils-layer/util";
+import { InternalServerError, NotFoundError } from "@arj/common-utils-layer/error";
+
+const logger = createLogger("planly-api");
 import { todayISO } from "../utils/util.js";
 import { HabitStatsUpdater } from "./stats/HabitStatsUpdater.js";
 import { CategoryStatsUpdater } from "./stats/CategoryStatsUpdater.js";

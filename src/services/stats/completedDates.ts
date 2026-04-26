@@ -11,35 +11,3 @@ export function getCompletedDatesFromTodoList(todos: Todo[], habitId: string): S
     }, new Set());
 }
 
-/** Datas em que todos os TODOs da categoria (habitIds) naquele dia estão DONE. */
-export function getCompletedCategoryDatesFromTodoList(todos: Todo[], habitIds: Set<string>): Set<string> {
-    const byDate = new Map<string, Todo[]>();
-    for (const t of todos) {
-        if (!habitIds.has(t.habitId)) continue;
-        if (!byDate.has(t.date)) byDate.set(t.date, []);
-        byDate.get(t.date)!.push(t);
-    }
-    const completed = new Set<string>();
-    for (const [date, list] of byDate) {
-        if (list.length > 0 && list.every((t) => t.status === TODO_STATUS.DONE)) {
-            completed.add(date);
-        }
-    }
-    return completed;
-}
-
-/** Datas em que todos os TODOs do usuário naquele dia estão DONE. */
-export function getCompletedUserDatesFromTodoList(todos: Todo[]): Set<string> {
-    const byDate = new Map<string, Todo[]>();
-    for (const t of todos) {
-        if (!byDate.has(t.date)) byDate.set(t.date, []);
-        byDate.get(t.date)!.push(t);
-    }
-    const completed = new Set<string>();
-    for (const [date, list] of byDate) {
-        if (list.length > 0 && list.every((t) => t.status === TODO_STATUS.DONE)) {
-            completed.add(date);
-        }
-    }
-    return completed;
-}

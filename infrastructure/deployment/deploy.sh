@@ -15,6 +15,11 @@ REGION=${AWS_REGION:-us-east-1}
 echo "🚀 Iniciando deploy do stack: ${STACK_NAME}"
 echo "🌍 Região: ${REGION}"
 
+# Security scan — blocks deploy if HIGH severity findings are detected
+echo "🔒 Running security scan..."
+chmod +x "$SCRIPT_DIR/security-scan.sh"
+bash "$SCRIPT_DIR/security-scan.sh"
+
 # Build do projeto (na raiz do projeto)
 echo "🔨 Compilando TypeScript..."
 cd "$ROOT_DIR"

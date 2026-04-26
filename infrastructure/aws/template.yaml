@@ -110,7 +110,7 @@ Resources:
             FunctionName: planly-api-category-lambda
             Runtime: nodejs20.x
             Handler: dist/handlers/category/index.handler
-            CodeUri: ..
+            CodeUri: ../..
             Role: !GetAtt CategoryLambdaExecutionRole.Arn
             Timeout: 30
             MemorySize: 256
@@ -258,7 +258,7 @@ Resources:
             FunctionName: planly-api-habit-lambda
             Runtime: nodejs20.x
             Handler: dist/handlers/habit/index.handler
-            CodeUri: ..
+            CodeUri: ../..
             Role: !GetAtt HabitLambdaExecutionRole.Arn
             Timeout: 30
             MemorySize: 256
@@ -319,7 +319,7 @@ Resources:
             FunctionName: planly-api-todo-lambda
             Runtime: nodejs20.x
             Handler: dist/handlers/todo/index.handler
-            CodeUri: ..
+            CodeUri: ../..
             Role: !GetAtt TodoLambdaExecutionRole.Arn
             Timeout: 30
             MemorySize: 256
@@ -371,7 +371,7 @@ Resources:
             FunctionName: planly-api-stats-midnight-lambda
             Runtime: nodejs20.x
             Handler: dist/handlers/stats-midnight/index.handler
-            CodeUri: ..
+            CodeUri: ../..
             Role: !GetAtt StatsMidnightLambdaExecutionRole.Arn
             Timeout: 120
             MemorySize: 256

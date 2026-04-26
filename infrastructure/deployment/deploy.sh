@@ -25,15 +25,15 @@ echo "🔨 Compilando TypeScript..."
 cd "$ROOT_DIR"
 npm run build
 
-# Build do SAM
+# Build do SAM (Makefile targets copy dist/ + run npm ci --omit=dev per function)
 echo "📦 Empacotando com SAM..."
 cd "$AWS_DIR"
 sam build --template-file template.yaml
 
-# Deploy
+# Deploy using the built template so SAM uses the Makefile build artifacts
 echo "☁️  Fazendo deploy na AWS..."
 sam deploy \
-  --template-file template.yaml \
+  --template-file .aws-sam/build/template.yaml \
   --stack-name ${STACK_NAME} \
   --region ${REGION} \
   --parameter-overrides AWSRegion=${REGION} \

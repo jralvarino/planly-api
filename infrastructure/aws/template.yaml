@@ -114,6 +114,8 @@ Resources:
             Role: !GetAtt CategoryLambdaExecutionRole.Arn
             Timeout: 30
             MemorySize: 256
+        Metadata:
+            BuildMethod: makefile
 
     # ============================================
     # Habit Module
@@ -262,6 +264,8 @@ Resources:
             Role: !GetAtt HabitLambdaExecutionRole.Arn
             Timeout: 30
             MemorySize: 256
+        Metadata:
+            BuildMethod: makefile
 
     # ============================================
     # Todo Module
@@ -323,6 +327,8 @@ Resources:
             Role: !GetAtt TodoLambdaExecutionRole.Arn
             Timeout: 30
             MemorySize: 256
+        Metadata:
+            BuildMethod: makefile
 
     # ============================================
     # Stats Midnight Job (streak recalc 00:01)
@@ -375,6 +381,8 @@ Resources:
             Role: !GetAtt StatsMidnightLambdaExecutionRole.Arn
             Timeout: 120
             MemorySize: 256
+        Metadata:
+            BuildMethod: makefile
 
     # IAM Role for EventBridge Scheduler (invoke Stats Midnight Lambda)
     StatsMidnightSchedulerExecutionRole:

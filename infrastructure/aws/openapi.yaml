@@ -231,7 +231,7 @@ components:
                 code: { type: string }
                 field: { type: string }
 paths:
-    /user:
+    /planly/user:
         get:
             summary: Get current user profile
             operationId: getUser
@@ -279,7 +279,7 @@ paths:
                             method.response.header.Access-Control-Allow-Origin: "'*'"
                             method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
                             method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
-    /categories:
+    /planly/categories:
         post:
             summary: Create a new category
             operationId: createCategory
@@ -352,7 +352,7 @@ paths:
                             method.response.header.Access-Control-Allow-Origin: "'*'"
                             method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
                             method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
-    /categories/{id}:
+    /planly/categories/{id}:
         get:
             summary: Get category by ID
             operationId: getCategoryById
@@ -482,7 +482,7 @@ paths:
                             method.response.header.Access-Control-Allow-Origin: "'*'"
                             method.response.header.Access-Control-Allow-Methods: "'GET,PUT,DELETE,OPTIONS'"
                             method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
-    /habits:
+    /planly/habits:
         post:
             summary: Create a new habit
             operationId: createHabit
@@ -560,7 +560,7 @@ paths:
                             method.response.header.Access-Control-Allow-Origin: "'*'"
                             method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
                             method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
-    /habits/{id}:
+    /planly/habits/{id}:
         get:
             summary: Get habit by ID
             operationId: getHabitById
@@ -684,7 +684,7 @@ paths:
                             method.response.header.Access-Control-Allow-Origin: "'*'"
                             method.response.header.Access-Control-Allow-Methods: "'GET,PUT,DELETE,OPTIONS'"
                             method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
-    /todo/date:
+    /planly/todo/date:
         get:
             summary: Get habits for a specific date
             operationId: getTodoListByDate
@@ -734,7 +734,7 @@ paths:
                             method.response.header.Access-Control-Allow-Origin: "'*'"
                             method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
                             method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
-    /todo/summary:
+    /planly/todo/summary:
         get:
             summary: Get daily summary of todos
             operationId: getDailySummary
@@ -793,7 +793,7 @@ paths:
                             method.response.header.Access-Control-Allow-Origin: "'*'"
                             method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
                             method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
-    /todo/{habitId}:
+    /planly/todo/{habitId}:
         patch:
             summary: Update todo status
             operationId: updateTodoStatus
@@ -852,7 +852,7 @@ paths:
                             method.response.header.Access-Control-Allow-Origin: "'*'"
                             method.response.header.Access-Control-Allow-Methods: "'PATCH,OPTIONS'"
                             method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
-    /todo/{habitId}/notes:
+    /planly/todo/{habitId}/notes:
         patch:
             summary: Update todo notes
             operationId: updateTodoNotes
@@ -911,7 +911,7 @@ paths:
                             method.response.header.Access-Control-Allow-Origin: "'*'"
                             method.response.header.Access-Control-Allow-Methods: "'PATCH,OPTIONS'"
                             method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
-    /stats/globalStreak:
+    /planly/stats/globalStreak:
         get:
             summary: Get global streak for the authenticated user
             operationId: getGlobalStreak
@@ -957,7 +957,7 @@ paths:
                             method.response.header.Access-Control-Allow-Origin: "'*'"
                             method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
                             method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
-    /stats/dashboard:
+    /planly/stats/dashboard:
         get:
             summary: Get consolidated dashboard data
             operationId: getDashboard

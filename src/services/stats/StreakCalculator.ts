@@ -1,6 +1,6 @@
 /**
- * Cálculo puro de streak a partir de datas agendadas e datas completadas.
- * Sem I/O; fácil de testar isoladamente.
+ * Pure streak calculation from scheduled dates and completed dates.
+ * No I/O; easy to test in isolation.
  */
 export interface StreakResult {
     currentStreak: number;
@@ -9,12 +9,12 @@ export interface StreakResult {
 }
 
 /**
- * Percorre as datas agendadas em ordem e retorna currentStreak, longestStreak e lastCompletedDate.
- * currentStreak = run no fim da lista (trailing run); se houver gap antes do fim, streak = 0.
- * Exceção: se o último dia agendado for `today` e ainda não estiver completo e o último dia
- * completado for o dia agendado imediatamente antes de hoje, o streak mostrado é o run anterior
- * (usuário tem até 00:00 para completar hoje). Assim funciona tanto para "todo dia" (user/category)
- * quanto para dias específicos (ex.: Seg/Qua/Sex).
+ * Iterates scheduled dates in order and returns currentStreak, longestStreak and lastCompletedDate.
+ * currentStreak = trailing run at the end of the list; if there is a gap before the end, streak = 0.
+ * Exception: if the last scheduled day is `today` and not yet complete and the last completed day
+ * is the scheduled day immediately before today, the displayed streak is the previous run
+ * (user has until 00:00 to complete today). Works for both "every day" (user/category)
+ * and specific days (e.g. Mon/Wed/Fri).
  */
 export function computeFullStreakStats(
     scheduledAsc: string[],
@@ -46,7 +46,7 @@ export function computeFullStreakStats(
 }
 
 /**
- * Calcula o streak e a última data completada considerando só datas agendadas até `upToDateInclusive`.
+ * Calculates streak and last completed date considering only scheduled dates up to `upToDateInclusive`.
  */
 export function computeStreakUpTo(
     scheduledAsc: string[],

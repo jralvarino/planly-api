@@ -145,13 +145,13 @@ export class TodoService {
                 // Fetch all valid habits for this date
                 const todoList: TodoList[] = await this.getTodoListByDate(userId, date);
 
-                // Estatísticas gerais
+                // General stats
                 const done = todoList.filter((t) => t.status === TODO_STATUS.DONE).length;
                 const skipped = todoList.filter((t) => t.status === TODO_STATUS.SKIPPED).length;
                 const pending = todoList.filter((t) => t.status === TODO_STATUS.PENDING).length;
                 const total = todoList.length;
 
-                // Agrupar por categoria
+                // Group by category
                 const todosByCategory: Record<string, TodoList[]> = {};
                 todoList.forEach((todo) => {
                     if (!todosByCategory[todo.categoryId]) {

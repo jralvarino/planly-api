@@ -96,7 +96,7 @@ export class StatsDashboardAggregator {
         const lastDay = new Date(y, m, 0).toISOString().slice(0, 10);
         const daysInMonth = new Date(y, m, 0).getDate();
 
-        // completedDates: dias em que TODOS os hábitos do dia estão DONE (usa lista completa do dia, não só TODOs na BD)
+        // completedDates: days where ALL habits of the day are DONE (uses the full daily list, not just TODOs in the DB)
         const monthDates = datesRange(firstDay, lastDay);
         const completedDates: string[] = [];
         for (const date of monthDates) {

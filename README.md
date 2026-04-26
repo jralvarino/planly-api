@@ -139,6 +139,18 @@ Compiles TypeScript from `src/` to `dist/` using `tsconfig.json`.
 
 ---
 
+## Claude Code Skills
+
+This project includes custom Claude Code slash commands under [.claude/commands/](.claude/commands/).
+
+| Skill | Description |
+|-------|-------------|
+| `/new-resource <ResourceName>` | Generates all files for a new domain resource (model, schemas, repository, service, controller, handler, container wiring) following the `category` resource as reference. |
+| `/new-route <resource> <METHOD> </path> <handlerName>` | Adds a new route to an existing resource: creates the Zod schema, adds the controller handler, updates the service if needed, and writes controller + service tests. |
+| `/check-coverage` | Runs `npm run test:coverage` and reports which files are below the 80% threshold, with suggested next steps per file. |
+
+---
+
 ## Unit tests
 
 ```bash

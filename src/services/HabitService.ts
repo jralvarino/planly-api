@@ -1,8 +1,8 @@
 import { injectable } from "tsyringe";
 import { HabitRepository } from "../repositories/HabitRepository.js";
 import { Habit } from "../models/Habit.js";
-import { NotFoundError } from "@arj/common-utils-layer/error";
-import { createLogger } from "@arj/common-utils-layer/util";
+import { NotFoundError } from "@arj/arj-common-utils/error";
+import { createLogger } from "@arj/arj-common-utils/util";
 import { v4 as uuidv4 } from "uuid";
 import { StatsService } from "./StatsService.js";
 import { TodoRepository } from "../repositories/TodoRepository.js";

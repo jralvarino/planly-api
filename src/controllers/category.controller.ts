@@ -8,9 +8,9 @@ import {
     deleteCategorySchema,
 } from "../schemas/category.schemas.js";
 import { CategoryService } from "../services/CategoryService.js";
-import { zodValidator } from "@arj/common-utils-layer/middleware";
-import type { WithUserId } from "@arj/common-utils-layer/middleware";
-import { created, success } from "@arj/common-utils-layer/util";
+import { zodValidator } from "@arj/arj-common-utils/middleware";
+import type { WithUserId } from "@arj/arj-common-utils/middleware";
+import { created, success } from "@arj/arj-common-utils/util";
 import { container } from "../container.js";
 
 
@@ -78,27 +78,27 @@ const deleteCategory = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
 export const routes: Route<APIGatewayProxyEvent, APIGatewayProxyResult>[] = [
     {
         method: "POST",
-        path: "/categories",
+        path: "/planly/categories",
         handler: createCategory,
     },
     {
         method: "PUT",
-        path: "/categories/{id}",
+        path: "/planly/categories/{id}",
         handler: updateCategory,
     },
     {
         method: "GET",
-        path: "/categories",
+        path: "/planly/categories",
         handler: getAllCategories,
     },
     {
         method: "GET",
-        path: "/categories/{id}",
+        path: "/planly/categories/{id}",
         handler: getCategoryById,
     },
     {
         method: "DELETE",
-        path: "/categories/{id}",
+        path: "/planly/categories/{id}",
         handler: deleteCategory,
     },
 ];

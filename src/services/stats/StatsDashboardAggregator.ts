@@ -2,7 +2,7 @@ import { StatsRepository } from "../../repositories/StatsRepository.js";
 import { TodoRepository } from "../../repositories/TodoRepository.js";
 import { HabitService } from "../HabitService.js";
 import { generatePK, generateSK } from "./StatsKeyGenerator.js";
-import { createLogger } from "@arj/common-utils-layer/util";
+import { createLogger } from "@arj/arj-common-utils/util";
 
 const logger = createLogger("planly-api");
 import type { TodoList } from "../../models/TodoList.js";

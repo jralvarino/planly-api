@@ -3,7 +3,7 @@ import { TodoRepository } from "../../repositories/TodoRepository.js";
 import { HabitService } from "../HabitService.js";
 import { TODO_STATUS } from "../../constants/todo.constants.js";
 import { addDays, todayISO } from "../../utils/util.js";
-import { createLogger } from "@arj/common-utils-layer/util";
+import { createLogger } from "@arj/arj-common-utils/util";
 
 const logger = createLogger("planly-api");
 import { computeFullStreakStats } from "./StreakCalculator.js";

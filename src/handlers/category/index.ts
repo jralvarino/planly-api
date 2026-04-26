@@ -8,8 +8,8 @@ import { injectLambdaContext } from "@aws-lambda-powertools/logger/middleware";
 import { captureLambdaHandler } from "@aws-lambda-powertools/tracer/middleware";
 
 import { routes } from "../../controllers/category.controller.js";
-import { createLogger } from "@arj/common-utils-layer/util";
-import { globalExceptionHandler, requestLoggingMiddleware, extractUserIdMiddleware } from "@arj/common-utils-layer/middleware";
+import { createLogger } from "@arj/arj-common-utils/util";
+import { globalExceptionHandler, requestLoggingMiddleware, extractUserIdMiddleware } from "@arj/arj-common-utils/middleware";
 import { tracer } from "../../utils/tracer.js";
 
 const logger = createLogger("planly-api");

@@ -3,7 +3,7 @@ import { container } from "tsyringe";
 import { TodoRepository } from "./repositories/TodoRepository.js";
 import { HabitRepository } from "./repositories/HabitRepository.js";
 import { CategoryRepository } from "./repositories/CategoryRepository.js";
-import { UserService } from "@arj/common-utils-layer/service";
+import { UserService } from "@arj/arj-common-utils/service";
 import { StatsRepository } from "./repositories/StatsRepository.js";
 import { TodoService } from "./services/TodoService.js";
 import { StatsService } from "./services/StatsService.js";

@@ -2,15 +2,15 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { Route } from "@middy/http-router";
 import middy from "@middy/core";
 import { HabitService } from "../services/HabitService.js";
-import { zodValidator } from "@arj/common-utils-layer/middleware";
-import type { WithUserId } from "@arj/common-utils-layer/middleware";
+import { zodValidator } from "@arj/arj-common-utils/middleware";
+import type { WithUserId } from "@arj/arj-common-utils/middleware";
 import {
     createHabitSchema,
     updateHabitSchema,
     getHabitByIdSchema,
     deleteHabitSchema,
 } from "../schemas/habit.schemas.js";
-import { created, success } from "@arj/common-utils-layer/util";
+import { created, success } from "@arj/arj-common-utils/util";
 import { container } from "../container.js";
 
 
@@ -76,27 +76,27 @@ const deleteHabit = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
 export const routes: Route<APIGatewayProxyEvent, APIGatewayProxyResult>[] = [
     {
         method: "POST",
-        path: "/habits",
+        path: "/planly/habits",
         handler: createHabit,
     },
     {
         method: "PUT",
-        path: "/habits/{id}",
+        path: "/planly/habits/{id}",
         handler: updateHabit,
     },
     {
         method: "GET",
-        path: "/habits",
+        path: "/planly/habits",
         handler: getAllHabits,
     },
     {
         method: "GET",
-        path: "/habits/{id}",
+        path: "/planly/habits/{id}",
         handler: getHabitById,
     },
     {
         method: "DELETE",
-        path: "/habits/{id}",
+        path: "/planly/habits/{id}",
         handler: deleteHabit,
     },
 ];

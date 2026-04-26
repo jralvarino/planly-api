@@ -4,7 +4,7 @@ import { HabitService } from "../HabitService.js";
 import { Habit } from "../../models/Habit.js";
 import { TODO_STATUS } from "../../constants/todo.constants.js";
 import { todayISO } from "../../utils/util.js";
-import { createLogger } from "@arj/common-utils-layer/util";
+import { createLogger } from "@arj/arj-common-utils/util";
 
 const logger = createLogger("planly-api");
 import { computeFullStreakStats, computeStreakUpTo } from "./StreakCalculator.js";

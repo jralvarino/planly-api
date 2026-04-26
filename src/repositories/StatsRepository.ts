@@ -1,8 +1,8 @@
 import { injectable } from "tsyringe";
 import { GetCommand, PutCommand, UpdateCommand, DeleteCommand } from "@aws-sdk/lib-dynamodb";
 import { ConditionalCheckFailedException } from "@aws-sdk/client-dynamodb";
-import { ddb } from "@arj/common-utils-layer/db";
-import { createLogger } from "@arj/common-utils-layer/util";
+import { ddb } from "@arj/arj-common-utils/db";
+import { createLogger } from "@arj/arj-common-utils/util";
 import { Stats } from "../models/Stats.js";
 import { DYNAMO_TABLES } from "../constants/todo.constants.js";
 

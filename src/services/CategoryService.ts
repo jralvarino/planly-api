@@ -2,8 +2,8 @@ import { injectable } from "tsyringe";
 import { CategoryRepository } from "../repositories/CategoryRepository.js";
 import { Category } from "../models/Category.js";
 import { HabitService } from "./HabitService.js";
-import { ConflictError, NotFoundError } from "@arj/common-utils-layer/error";
-import { createLogger } from "@arj/common-utils-layer/util";
+import { ConflictError, NotFoundError } from "@arj/arj-common-utils/error";
+import { createLogger } from "@arj/arj-common-utils/util";
 import { v4 as uuidv4 } from "uuid";
 
 const logger = createLogger("planly-api");

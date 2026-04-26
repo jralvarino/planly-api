@@ -1,11 +1,11 @@
 import "../../container.js";
 import type { ScheduledHandler } from "aws-lambda";
 import { addDays, todayISO } from "../../utils/util.js";
-import { UserService } from "@arj/common-utils-layer/service";
+import { UserService } from "@arj/arj-common-utils/service";
 import { TodoRepository } from "../../repositories/TodoRepository.js";
 import { TodoService } from "../../services/TodoService.js";
 import { StatsService } from "../../services/StatsService.js";
-import { createLogger } from "@arj/common-utils-layer/util";
+import { createLogger } from "@arj/arj-common-utils/util";
 
 const logger = createLogger("planly-api");
 import { TODO_STATUS } from "../../constants/todo.constants.js";

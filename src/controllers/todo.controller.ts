@@ -4,10 +4,10 @@ import middy from "@middy/core";
 import { updateTodoStatusSchema, updateTodoNotesSchema } from "../schemas/todo.schemas.js";
 import { TodoService, UpdateStatusParams } from "../services/TodoService.js";
 import { TodoStatus } from "../constants/todo.constants.js";
-import { zodValidator } from "@arj/common-utils-layer/middleware";
-import type { WithUserId } from "@arj/common-utils-layer/middleware";
-import { success, noContent, createLogger } from "@arj/common-utils-layer/util";
-import { BadRequestError } from "@arj/common-utils-layer/error";
+import { zodValidator } from "@arj/arj-common-utils/middleware";
+import type { WithUserId } from "@arj/arj-common-utils/middleware";
+import { success, noContent, createLogger } from "@arj/arj-common-utils/util";
+import { BadRequestError } from "@arj/arj-common-utils/error";
 import { container } from "../container.js";
 
 const logger = createLogger("planly-api");
@@ -85,22 +85,22 @@ const updateTodoNotes = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
 export const routes: Route<APIGatewayProxyEvent, APIGatewayProxyResult>[] = [
     {
         method: "GET",
-        path: "/todo/date",
+        path: "/planly/todo/date",
         handler: getTodoListByDate,
     },
     {
         method: "GET",
-        path: "/todo/summary",
+        path: "/planly/todo/summary",
         handler: getDailySummary,
     },
     {
         method: "PATCH",
-        path: "/todo/{habitId}",
+        path: "/planly/todo/{habitId}",
         handler: createOrUpdateTodo,
     },
     {
         method: "PATCH",
-        path: "/todo/{habitId}/notes",
+        path: "/planly/todo/{habitId}/notes",
         handler: updateTodoNotes,
     },
 ];

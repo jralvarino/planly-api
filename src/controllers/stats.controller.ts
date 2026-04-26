@@ -2,10 +2,10 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { Route } from "@middy/http-router";
 import middy from "@middy/core";
 import { StatsService } from "../services/StatsService.js";
-import { zodValidator } from "@arj/common-utils-layer/middleware";
-import type { WithUserId } from "@arj/common-utils-layer/middleware";
+import { zodValidator } from "@arj/arj-common-utils/middleware";
+import type { WithUserId } from "@arj/arj-common-utils/middleware";
 import { getDashboardSchema } from "../schemas/stats.schemas.js";
-import { success } from "@arj/common-utils-layer/util";
+import { success } from "@arj/arj-common-utils/util";
 import { container } from "../container.js";
 
 
@@ -42,12 +42,12 @@ const getDashboard = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
 export const routes: Route<APIGatewayProxyEvent, APIGatewayProxyResult>[] = [
     {
         method: "GET",
-        path: "/stats/globalStreak",
+        path: "/planly/stats/globalStreak",
         handler: getGlobalStreak,
     },
     {
         method: "GET",
-        path: "/stats/dashboard",
+        path: "/planly/stats/dashboard",
         handler: getDashboard,
     },
 ];

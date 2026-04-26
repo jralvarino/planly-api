@@ -9,8 +9,8 @@ import { captureLambdaHandler } from "@aws-lambda-powertools/tracer/middleware";
 
 import { routes as todoRoutes } from "../../controllers/todo.controller.js";
 import { routes as statsRoutes } from "../../controllers/stats.controller.js";
-import { createLogger } from "@arj/common-utils-layer/util";
-import { globalExceptionHandler, requestLoggingMiddleware, extractUserIdMiddleware } from "@arj/common-utils-layer/middleware";
+import { createLogger } from "@arj/arj-common-utils/util";
+import { globalExceptionHandler, requestLoggingMiddleware, extractUserIdMiddleware } from "@arj/arj-common-utils/middleware";
 import { tracer } from "../../utils/tracer.js";
 
 const logger = createLogger("planly-api");

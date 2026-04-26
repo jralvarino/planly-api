@@ -1,7 +1,7 @@
 import { injectable } from "tsyringe";
 import { DeleteCommand, GetCommand, PutCommand, QueryCommand, ScanCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { ddb } from "@arj/common-utils-layer/db";
-import { createLogger } from "@arj/common-utils-layer/util";
+import { ddb } from "@arj/arj-common-utils/db";
+import { createLogger } from "@arj/arj-common-utils/util";
 import { Habit } from "../models/Habit.js";
 import { DYNAMO_TABLES } from "../constants/todo.constants.js";
 

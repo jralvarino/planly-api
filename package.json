@@ -7,11 +7,12 @@
         "dev": "npm run build && npm run sam:local:start",
         "dev:debug": "npm run build && npm run sam:local:start:debug",
         "build": "tsc",
-        "sam:build": "cd deployment && sam build --template-file template.yaml",
-        "sam:deploy": "cd deployment && sam deploy --template-file template.yaml",
-        "sam:local:start": "cd deployment && sam local start-api --template template.yaml --port 3000 --env-vars env.json --docker-network planly-api_default --warm-containers EAGER",
-        "sam:local:start:debug": "cd deployment && sam local start-api --template template.yaml --port 3000 --debug-port 9229 --env-vars env.json --docker-network planly-api_default --warm-containers EAGER",
-        "deploy": "./deployment/deploy.sh",
+        "sam:build": "cd infrastructure/aws && sam build --template-file template.yaml",
+        "sam:deploy": "cd infrastructure/aws && sam deploy --template-file template.yaml",
+        "sam:local:start": "cd infrastructure/aws && sam local start-api --template template.yaml --port 3000 --env-vars env.json --docker-network planly-api_default --warm-containers EAGER",
+        "sam:local:start:debug": "cd infrastructure/aws && sam local start-api --template template.yaml --port 3000 --debug-port 9229 --env-vars env.json --docker-network planly-api_default --warm-containers EAGER",
+        "deploy": "./infrastructure/deployment/deploy.sh",
+        "update:common-utils": "./infrastructure/deployment/update-common-utils.sh",
         "docker:up": "docker-compose up -d",
         "docker:down": "docker-compose down",
         "docker:logs": "docker-compose logs -f",
@@ -27,7 +28,7 @@
         "lint:fix": "eslint src --ext .ts --fix",
         "format": "prettier --write \"src/**/*.ts\"",
         "format:check": "prettier --check \"src/**/*.ts\"",
-        "swagger": "npx --yes serve deployment -p 8080"
+        "swagger": "npx --yes serve infrastructure/aws -p 8080"
     },
     "keywords": [],
     "author": "",
@@ -49,7 +50,7 @@
         "vitest": "^2.1.9"
     },
     "dependencies": {
-        "@arj/common-utils-layer": "file:../common-utils-layer/arj-common-utils-layer-1.0.4.tgz",
+        "@arj/arj-common-utils": "^1.0.18",
         "@aws-lambda-powertools/logger": "^2.30.2",
         "@aws-lambda-powertools/tracer": "^2.30.2",
         "@aws-sdk/client-dynamodb": "^3.956.0",

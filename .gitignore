@@ -31,3 +31,4 @@ samconfig.toml.bak
 
 # Scripts
 populate-user*
+.npmrc
